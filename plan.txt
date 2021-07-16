@@ -1,0 +1,81 @@
+Proof assistant or fully automatic finding of theorems?
+
+Round elimination
+- problem needs to be locally verifiable
+- works only if the input is solvable in constant time?
+- can be used to solve the original problem if one more round is used
+
+Verifying an optimized Round elimination
+
+Algorithmic definition
+- alphabet is turned into its powerset
+- new actives are found in old passives with all choices of elements
+- new passives are found in old actives with some choice of elements
+
+Definition via properties
+???
+
+Automation
+- Canonicalization, specialized solvers like omega
+- Coq-hammer
+- Tactician
+
+Prove RE(Pi(x,y)) = Pi(x', y') from Lower bounds for maximal matchings...
+
+Canonicalization
+- different alphabets
+- representing multisets kind of sucks
+- multiple "correct" round elimination results ("maximality")
+
+Proving Rust
+- Prusti is mostly automatic compared to proof assistants and has a nice UI
+- Electrolysis converts Rust to Lean http://kha.github.io/electrolysis/. Project is abandoned but it supports an impressive amount of Rust. Relies on internals of an ancient Rust compiler. Maybe the conversion would be even easier to implement on today's Rust?
+- Other tools focus on proving absence of panics, not functional correctness.
+
+Improvements to Round Eliminator?
+- Could improve cache use by removing unnecessary metadata from Line struct
+
+# Fast and correct Round Eliminator
+
+Round Eliminator is a program that performs a simple transformation that is used in many proofs in Distributed Algorithms. It can even be used to automatically find out properties of distributed graph problems. Making it faster and more memory efficient would enable classifying more graph problems automatically. At the same time, it seems wrong to use the program as part of a proof without knowing that it is trustworthy. As my master's thesis, I will try to formally verify Round Eliminator or its results and make it faster while maintaining correctness.
+
+## Description of Round Elimination
+- Write contents of note on my desk here
+
+This also serves as the specification of round elimination. It is too slow to actually run but one can write a faster program in a proof assistant and prove that it always produces the same output as the slow one would.
+
+I'll probably use Coq, as it is very reliable and performs well. Coq programs can be extracted to OCaml, which can be decently performant. Round eliminator is written in Rust, however, and beating that with OCaml can be difficult.
+
+One could compare the output of the Rust and OCaml programs, which is decent for verifying results found by the Rust version but not very helpful for finding bugs in the Rust version while developing it.
+
+## Proving Rust
+
+There are a number of fully automatic verification tools for Rust but most of them are not applicable because they only prove the absence of runtime errors. Prusti allows annotating functions with their behaviour as well. The downside is that it may not always find a proof. Whether it is powerful enough to be convenient in this project remains to be seen.
+
+Electrolysis is a project from 2016 that converts Rust to Lean 2 code with the same behaviour. The code can then be proven correct in the proof assistant.
+
+It covers a remarkable amount of the Rust programming language (see http://kha.github.io/electrolysis/) even though it is just one person's master's thesis. Doing something similar today should be easier, as the Rust compiler has been changed to make developing tools easier.
+
+The conversion makes impure functions pure by changing functions that take a mutable reference to functions that take an argument and return a modified version. The performance of the code changes but its output doesn't.
+
+## Not proving Rust
+
+Round Eliminator could be modified so that it produces the result along with a reasoning chain of why the result is correct. The reasoning could then be checked by a separate program written in a proof assistant. This works well if the reasoning is concise enough that producing it doesn't become the bottleneck. This requires further research.
+
+## Proof strategy
+
+Writing maintainable proofs in Coq means writing tactics that automatically do a lot of the busywork required to write proofs about the domain's data structures. Often tactics convert data structures to a canonical form, which is nicer to operate on. There are also external programs that write proofs for some solved problems, for example omega for solving linear equations.
+
+The most important data structure in this proof will be the one representing a problem. Its multisets are not suitable for a performant program but maybe they aren't helpful for proofs either. I will have to compare a straightforward encoding with the one that Round Eliminator uses and try to find one that is easy to reason about.
+
+Coq-hammer and Tactician are tools which try to automatically write proofs by selecting tactics based on heuristics. Trying them wouldn't hurt but they may not work well in this domain.
+
+## Making RE faster
+
+At a glance I've noticed that Round Eliminator duplicates some metadata that could be stored higher up. In general, the memory layout could be improved.
+
+I hope I'll come up with some algorithmic improvements as well while working on the proof.
+
+## Stretch goals
+
+In If I have extra time after verifying round elimination I can work on verifying other interesting transformations performed by Round Eliminator like relaxations.

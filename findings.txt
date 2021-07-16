@@ -1,0 +1,3 @@
+SAT-solving is way too slow. It was challenging to find a compact enough encoding of problems and once I found one that allowed Z3 to consume the minute problem, Z3 took way too long on it.
+
+Prusti is useless. It is pretty slow even on tiny programs but on most programs it simply doesn't work because it fails to convert any useful code using iterators but also fails on indexing nested vectors.

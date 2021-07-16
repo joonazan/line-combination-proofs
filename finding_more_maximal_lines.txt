@@ -1,0 +1,16 @@
+These lines define the problem
+ACE ACE
+BCF BCF
+DEF DEF
+
+But these are also maximal
+CEF CEF
+CE ACEF
+CF BCEF
+EF CDEF
+C ABCEF
+E ACDEF
+F BCDEF
+
+At least in this case, any line can be created by combining two lines.
+From one side you take the intersection of the sets and from the other side you take the union.
