@@ -1,0 +1,84 @@
+\documentclass{article}
+
+\usepackage[numbers]{natbib}
+\usepackage[a4paper]{geometry}
+\usepackage[most]{tcolorbox}
+
+\title{Towards Fast and Correct Round Elimination}
+\author{Joonatan Saarhelo}
+
+\begin{document}
+
+\maketitle
+
+Only sometimes incorrect proofs get published. On the other hand, most programs are wrong. The list of software that afl-fuzz\cite{AFL} found bugs in illustrates this pretty well. Despite that, software is used to prove mathematical results. In my master's thesis I want to produce a convincingly correct implementation of one such algorithm, Round Elimination.
+
+\section{Round Elimination}
+
+Brandt et al. introduced the algorithm as Automatic Speedup Theorem\cite{speedup}. The name Round Elimination is derived from Olivetti's implementation called Round Eliminator\cite{RE}. Round Elimination has been used to prove bounds on time complexity for various problems in the LOCAL model.\cite{tc1, tc2, tc3}
+
+\subsection{Locally Checkable Labeling}
+
+Round Elimination operates on an encoding of Locally Checkable Labeling (LCL) problems. LCL-problems are edge coloring problems on biregular graphs. One of the bipartitions is called the active side and the other is the passive side. Each side has a set of multisets of colors. Each multiset describes one acceptable way to color the edges of that type of vertex. A solution to an LCL-problem is a coloring where every vertex's edges are colored in an acceptable way.
+
+In Round Eliminator, problems are represented as \emph{lines}. Lines are a kind of shorthand notation that compresses multiple multisets into one line. Each line is a multiset of sets and represents or \emph{generates} all the multisets obtained by choosing one color from each set.\cite{RE}
+
+\begin{figure}[h]
+\centering
+\begin{tcolorbox}[width=.2\textwidth, nobeforeafter, title=active side]
+A A A A \\
+B B B B \\
+C C C C
+\end{tcolorbox}
+\begin{tcolorbox}[width=.2\textwidth, nobeforeafter, title=passive side]
+A BC \\
+B C
+\end{tcolorbox}
+\caption{Three-coloring in Round Eliminator's shorthand}
+\end{figure}
+
+\subsection{Round Elimination}
+
+As the name suggests, Round Elimination takes a problem $P$ that can be solved in $r$ rounds and outputs a new problem $P'$ that is solvable in $r-1$ rounds. But what is $P'$ relationship to $P$?
+
+While $P$ assigns a color to each edge, $P'$ assigns a set of colors each edge. That set contains the colors that the edge could have. There is uncertainty because in $r-1$ rounds some information that affects the solution of $P$ is out of reach.
+
+\section{Proving Correctness}
+This also serves as the specification of round elimination. It is too slow to actually run but one can write a faster program in a proof assistant and prove that it always produces the same output as the slow one would.
+
+I'll probably use Coq, as it is very reliable and performs well. Coq programs can be extracted to OCaml, which can be decently performant. Round eliminator is written in Rust, however, and beating that with OCaml can be difficult.
+
+One could compare the output of the Rust and OCaml programs, which is decent for verifying results found by the Rust version but not very helpful for finding bugs in the Rust version while developing it.
+
+Proving Rust
+
+There are a number of fully automatic verification tools for Rust but most of them are not applicable because they only prove the absence of runtime errors. Prusti allows annotating functions with their behaviour as well. The downside is that it may not always find a proof. Whether it is powerful enough to be convenient in this project remains to be seen.
+
+Electrolysis is a project from 2016 that converts Rust to Lean 2 code with the same behaviour. The code can then be proven correct in the proof assistant.
+
+It covers a remarkable amount of the Rust programming language (see http://kha.github.io/electrolysis/) even though it is just one person's master's thesis. Doing something similar today should be easier, as the Rust compiler has been changed to make developing tools easier.
+
+The conversion makes impure functions pure by changing functions that take a mutable reference to functions that take an argument and return a modified version. The performance of the code changes but its output doesn't.
+
+Not proving Rust
+
+Round Eliminator could be modified so that it produces the result along with a reasoning chain of why the result is correct. The reasoning could then be checked by a separate program written in a proof assistant. This works well if the reasoning is concise enough that producing it doesn't become the bottleneck. This requires further research.
+
+Proof strategy
+
+Writing maintainable proofs in Coq means writing tactics that automatically do a lot of the busywork required to write proofs about the domain's data structures. Often tactics convert data structures to a canonical form, which is nicer to operate on. There are also external programs that write proofs for some solved problems, for example omega for solving linear equations.
+
+The most important data structure in this proof will be the one representing a problem. Its multisets are not suitable for a performant program but maybe they aren't helpful for proofs either. I will have to compare a straightforward encoding with the one that Round Eliminator uses and try to find one that is easy to reason about.
+
+Coq-hammer and Tactician are tools which try to automatically write proofs by selecting tactics based on heuristics. Trying them wouldn't hurt but they may not work well in this domain.
+
+Making RE faster
+
+At a glance I've noticed that Round Eliminator duplicates some metadata that could be stored higher up. In general, the memory layout could be improved.
+
+I hope I'll come up with some algorithmic improvements as well while working on the proof.
+
+\bibliographystyle{plainnat}
+\bibliography{plan}
+
+\end{document}
