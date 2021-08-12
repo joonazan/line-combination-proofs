@@ -15,36 +15,15 @@ Only sometimes incorrect proofs get published. On the other hand, most programs 
 
 \section{Round Elimination}
 
-Brandt et al. introduced round elimination in 2019\cite{speedup}. Dennis Olivetti wrote an implementation of it called Round Eliminator\cite{RE}. Round Elimination has been used to prove bounds on time complexity for various problems in the LOCAL model.\cite{tc1, tc2, tc3}
+Brandt et al.\ introduced round elimination in 2019\ \cite{speedup}. Dennis Olivetti wrote an implementation of it called Round Eliminator\ \cite{RE}. Round Elimination has been used to prove bounds on time complexity for various problems in the LOCAL model\ \cite{tc1, tc2, tc3}.
 
-\subsection{Locally Checkable Labeling}
+In Round Eliminator, problems are represented as \emph{lines}. Lines are a kind of shorthand notation that compresses multiple multisets into one line. Each line is a multiset of sets and represents all the multisets obtained by choosing one color from each set.\ \cite{RE}
 
-Round Elimination operates on an encoding of Locally Checkable Labeling (LCL) problems. LCL-problems are edge coloring problems on biregular graphs. One of the bipartitions is called the active side and the other is the passive side. Each side has a set of multisets of colors. Each multiset describes one acceptable way to color the edges of that type of vertex. A solution to an LCL-problem is a coloring where every vertex's edges are colored in an acceptable way.
+The new active side consists of all lines that only contain configurations present in the old passive side, excluding lines that are subsets of other lines. The new passive side consists of all configurations made of new active sides' symbols that contain a configuration from the old active side.\ \cite{DA2020}
 
-In Round Eliminator, problems are represented as \emph{lines}. Lines are a kind of shorthand notation that compresses multiple multisets into one line. Each line is a multiset of sets and represents or \emph{generates} all the multisets obtained by choosing one color from each set.\cite{RE}
-
-\begin{figure}[h]
-\centering
-\begin{tcolorbox}[width=.2\textwidth, nobeforeafter, title=active side]
-A A A A \\
-B B B B \\
-C C C C
-\end{tcolorbox}
-\begin{tcolorbox}[width=.2\textwidth, nobeforeafter, title=passive side]
-A BC \\
-B C
-\end{tcolorbox}
-\caption{Three-coloring in Round Eliminator's shorthand}
-\end{figure}
-
-\subsection{Round Elimination}
-
-As the name suggests, Round Elimination takes a problem $P$ that can be solved in $r$ rounds and outputs a new problem $P'$ that is solvable in $r-1$ rounds. But what is $P'$ relationship to $P$?
-
-While $P$ assigns a color to each edge, $P'$ assigns a set of colors each edge. That set contains the colors that the edge could have. There is uncertainty because in $r-1$ rounds some information that affects the solution of $P$ is out of reach.
+Written as a computer program, the above definition is a very concise and slow implementation of round elimination. To prove the correctness of a round elimination algorithm it suffices to prove that its output contains the same configurations as the reference implementation's output.
 
 \section{Proving Correctness}
-This also serves as the specification of round elimination. It is too slow to actually run but one can write a faster program in a proof assistant and prove that it always produces the same output as the slow one would.
 
 I'll probably use Coq, as it is very reliable and performs well. Coq programs can be extracted to OCaml, which can be decently performant. Round eliminator is written in Rust, however, and beating that with OCaml can be difficult.
 
