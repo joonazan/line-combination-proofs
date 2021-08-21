@@ -60,7 +60,7 @@ Qed.
 Local Hint Resolve Permutation_refl Permutation_sym : db.
 
 Definition contains_unpermuted {N} (coloring: @Coloring N) (line: @Line N) : Prop :=
-  Forall2 coloring line (λ c l, set_In c l).
+  Forall2 coloring line (@set_In nat).
 
 Definition contains {N} (coloring : @Coloring N) (line : @Line N) :=
   ∃ p, Permutation N coloring p ∧ contains_unpermuted p line.
@@ -111,20 +111,74 @@ Definition combination {N} (a : @Line (S N)) (b : @Line (S N)) : @Line (S N) :=
   , map2 (set_inter nat_eq_dec) (tl a) (tl b)
   ).
 
-Theorem combination_is_sound {N} (a : @Line (S N)) (b : @Line (S N)) :
-∀ a' b' c, c ∈ combination a' b' -> Permutation (S N) a a' -> Permutation (S N) b b' -> c ∈ a ∨ c ∈ b.
+Definition IsCombinationOfTwo {N} (a b c : @Line (S N)) := ∃ a' b', Permutation (S N) a' a ∧ Permutation (S N) b' b ∧ combination a' b' = c.
+
+Lemma combination_is_sound_helper1 {N} : ∀ (a b : @Line N) x, All (map2 (set_In (A:=nat)) x (map2 (set_inter nat_eq_dec) a b)) ->
+  All (map2 (set_In (A:=nat)) x a).
+  induction N; auto.
   intros.
-  rewrite (permutation_contains _ _ a a'); auto.
-  rewrite (permutation_contains _ _ b b'); auto.
-
-  destruct H, H.
-  destruct x, a', b', H2.
-  apply set_union_elim in H2; destruct H2; [left | right];
-
-  exists (n, v);
-  split; auto; split; auto;
-  induction N; auto;
-  destruct v1, v, v0, H3;
-  split;
-  eauto using set_inter_elim1, set_inter_elim2, Permutation_refl.
+  destruct x, a, b, H.
+  split; eauto using set_inter_elim1.
 Qed.
+
+Lemma combination_is_sound_helper2 {N} : ∀ (a b : @Line N) x, All (map2 (set_In (A:=nat)) x (map2 (set_inter nat_eq_dec) a b)) ->
+  All (map2 (set_In (A:=nat)) x b).
+  induction N; auto.
+  intros.
+  destruct x, a, b, H.
+  split; eauto using set_inter_elim2.
+Qed.
+
+Theorem combination_is_sound {N} (a : @Line (S N)) (b : @Line (S N)) :
+∀ c col, IsCombinationOfTwo a b c -> col ∈ c -> col ∈ a ∨ col ∈ b.
+  intros.
+  destruct H, H, H, H1.
+  rewrite (permutation_contains _ _ a x); auto with db.
+  rewrite (permutation_contains _ _ b x0); auto with db.
+
+  destruct col, x, x0.
+  rewrite <- H2 in H0.
+  destruct H0, H0, x.
+  destruct H3.
+  apply set_union_elim in H3; destruct H3; [left | right];
+
+  exists (n0, v2);
+  split; auto with db; split; auto;
+  eauto using combination_is_sound_helper1, combination_is_sound_helper2.
+Qed.
+
+(** Show that every maximal line is reachable via combinations *)
+
+Fixpoint weight {N} (line : @Line N) : nat :=
+  match N as n return Vec (list nat) n -> nat with
+  | 0 => λ _, 0
+  | S n => λ xs, match xs with
+    | (h, t) => length h + weight t
+    end
+  end line.
+
+Lemma split_into_colorings {N} (line: @Line (S N)):
+weight line > (S N) -> ∃ a b, combination a b = line ∧ weight a < weight line ∧ weight b < weight line.
+  intros.
+Abort.
+
+Definition subset {N} (a b : @Line N) := ∀ x, x ∈ a -> x ∈ b.
+Notation "a ⊆ b" := (subset a b) (at level 70, no associativity).
+Notation "a ⊈ b" := (~ subset a b) (at level 70, no associativity).
+
+Definition valid {N} (line : @Line N) (input: list (@Line N)) :=
+  ∀ x, x ∈ line -> ∃ i, set_In i input ∧ x ∈ i.
+
+Inductive IsCombinationOf {N} : @Line (S N) -> list (@Line (S N)) -> Prop :=
+    present : ∀ a lines, set_In a lines -> IsCombinationOf a lines
+  | combined : ∀ (a b c : @Line (S N)) lines, IsCombinationOf a lines -> IsCombinationOf b lines -> 
+      IsCombinationOfTwo a b c -> IsCombinationOf c lines.
+
+Theorem combination_is_complete {N} (input : list (@Line (S N))) : ∀ line, valid line input -> IsCombinationOf line input.
+  intros.
+  (* split into smallest lines, declare impossibility if some coloring is not in input *)
+Abort.
+
+Theorem combining_two_suffices {N} (lines : list (@Line (S N))) (missing : @Line (S N)):
+(∀ line, set_In line lines -> missing ⊈ line) -> valid missing lines ->
+  ∃ a b c, set_In a lines ∧ set_In b lines ∧ IsCombinationOfTwo a b c ∧ ∀ line, set_In line lines -> c ⊈ line.
