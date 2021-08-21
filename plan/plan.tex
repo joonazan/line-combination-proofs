@@ -11,7 +11,7 @@
 
 \maketitle
 
-Only sometimes incorrect proofs get published. On the other hand, most programs are wrong. The list of software that afl-fuzz\cite{AFL} found bugs in illustrates this pretty well. Despite that, software is used to prove mathematical results. In my master's thesis I want to produce a convincingly correct implementation of one such algorithm, Round Elimination.
+Only sometimes incorrect proofs get published. On the other hand, most programs are wrong. The list of software that afl-fuzz\cite{AFL} found bugs in illustrates this pretty well. Despite that, software is used to prove mathematical results. In my master's thesis I want to produce a convincingly correct implementation of one such program, Round Eliminator.
 
 \section{Round Elimination}
 
@@ -21,41 +21,35 @@ In Round Eliminator, problems are represented as \emph{lines}. Lines are a kind 
 
 The new active side consists of all lines that only contain configurations present in the old passive side, excluding lines that are subsets of other lines. The new passive side consists of all configurations made of new active sides' symbols that contain a configuration from the old active side.\ \cite{DA2020}
 
-Written as a computer program, the above definition is a very concise and slow implementation of round elimination. To prove the correctness of a round elimination algorithm it suffices to prove that its output contains the same configurations as the reference implementation's output.
+Written as a computer program, the above definition is a very concise and slow implementation of round elimination. To prove the correctness of a round elimination algorithm it suffices to prove that its output contains exactly the configurations described in the above paragraph.
 
 \section{Proving Correctness}
 
-I'll probably use Coq, as it is very reliable and performs well. Coq programs can be extracted to OCaml, which can be decently performant. Round eliminator is written in Rust, however, and beating that with OCaml can be difficult.
+There are two parts to correctness. Correctness of the algorithm and correctness of the implementation. I will try to address both with little room for human error.
 
-One could compare the output of the Rust and OCaml programs, which is decent for verifying results found by the Rust version but not very helpful for finding bugs in the Rust version while developing it.
+For efficiency reasons, the current Round Eliminator uses an algorithm that hasn't been analysed in any literature. My version will as well. It is important to prove that the theory behind it is sound.
 
-Proving Rust
+An implementation may make small changes to an algorithm, like dividing a problem into chunks to reduce cache misses. Bugs may exist even in pedantic implementations due to peculiarities of programming languages, for example integer overflow.
 
-There are a number of fully automatic verification tools for Rust but most of them are not applicable because they only prove the absence of runtime errors. Prusti allows annotating functions with their behaviour as well. The downside is that it may not always find a proof. Whether it is powerful enough to be convenient in this project remains to be seen.
+The reasonably mature tools available for writing verified programs today are Agda, Coq, Isabelle/HOL, Lean and SAT-solvers. SAT-solvers excel in finite problems but are not directly applicable to proving theorems about objects of arbitrary size. The others should be reasonable choices for formalizing the theory. Agda does not have built-in facilities for automating proofs, it is meant to be a programming language more than a proof assistant. Lean 3 has no way of making runnable programs and Lean 4 isn't usable yet. Isabelle and Coq are suitable choices for this project.
 
-Electrolysis is a project from 2016 that converts Rust to Lean 2 code with the same behaviour. The code can then be proven correct in the proof assistant.
+Both Coq and Isabelle can be transpiled to OCaml and various other ML flavors.\ \cite{CoqCodegen, IsabelleCodegen} This allows writing a program and proving its correctness. But purely functional OCaml can be significantly slower than C or Rust, so ideally one should be able to prove a Rust version or make an unverified program, the output of which can be checked with a verified program.
 
-It covers a remarkable amount of the Rust programming language (see http://kha.github.io/electrolysis/) even though it is just one person's master's thesis. Doing something similar today should be easier, as the Rust compiler has been changed to make developing tools easier.
+It is easy to verify that each output line can be obtained from the input. However, it is not clear how to quickly check that no line is missing in the output. If a way to do that was found, checking the output of an unverified program would be the best option; it avoids proofs related to the specific algorithm used to produce the output, meaning it can be used to check the results of better future algorithms as well.
 
-The conversion makes impure functions pure by changing functions that take a mutable reference to functions that take an argument and return a modified version. The performance of the code changes but its output doesn't.
+There are a number of fully automatic verification tools for Rust but most of them are not applicable because they only prove the absence of runtime errors. Prusti is one that allows annotating functions with their behaviour as well but based on my testing, Prusti doesn't currently support enough Rust to be used on useful programs.
 
-Not proving Rust
+Electrolysis is a project from 2016 that converts Rust to Lean 2 code, preserving behaviour but not time complexity. The code can then be proven correct in the proof assistant. It covers a remarkable amount of the Rust programming language even though it is just one person's master's thesis.\ \cite{ElectrolysisCoverage} Unfortunately this would have to be rebuilt as Electrolysis only works on 2016 Rust and Lean 2.
 
-Round Eliminator could be modified so that it produces the result along with a reasoning chain of why the result is correct. The reasoning could then be checked by a separate program written in a proof assistant. This works well if the reasoning is concise enough that producing it doesn't become the bottleneck. This requires further research.
+The seL4 microkernel has been fully verified in Isabelle by translating a subset of C99 to HOL.\ \cite{Sel4} I believe the same code could be used for verifying a Round Eliminator written in C. Unlike Rust, C is far from pure functional programming and the generated HOL involves Hoare logic, which can be painful to deal with compared to the pure functions produced by Electrolysis.
 
-Proof strategy
+\section{Plan}
 
-Writing maintainable proofs in Coq means writing tactics that automatically do a lot of the busywork required to write proofs about the domain's data structures. Often tactics convert data structures to a canonical form, which is nicer to operate on. There are also external programs that write proofs for some solved problems, for example omega for solving linear equations.
+I have already started proving the theory behind round elimination in Coq. It has helped me to get a more robust understanding of it. I have also rewritten a part of round elimination so that it is several orders of magnitude faster than the old version.
 
-The most important data structure in this proof will be the one representing a problem. Its multisets are not suitable for a performant program but maybe they aren't helpful for proofs either. I will have to compare a straightforward encoding with the one that Round Eliminator uses and try to find one that is easy to reason about.
+If it turns out that there is no efficient way to check that an output is correct, I will write an inefficient implementation in Coq. If that succeeds, I will choose between the C to Isabelle translation and making a new version of Electrolysis. I choose to do the pure Coq version first because proving functions that you can control is strictly easier than proving generated functions.
 
-Coq-hammer and Tactician are tools which try to automatically write proofs by selecting tactics based on heuristics. Trying them wouldn't hurt but they may not work well in this domain.
-
-Making RE faster
-
-At a glance I've noticed that Round Eliminator duplicates some metadata that could be stored higher up. In general, the memory layout could be improved.
-
-I hope I'll come up with some algorithmic improvements as well while working on the proof.
+I hope I'll come up with more algorithmic improvements while working on the proofs.
 
 \bibliographystyle{plainnat}
 \bibliography{plan}
