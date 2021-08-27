@@ -7,3 +7,10 @@ Apparently the way I imagine the possible multisets is called a Hasse diagram.
 Hall's theorem could be turned into an algorithm for checking for the existence of a perfect matching but the time complexity would be horrible.
 
 Combining two lines can yield hundreds of new lines but only the few that aren't strictly inferior to any others need to be considered. In about 30 degree 5 lines this reduced the number of new lines from 360 thousand to one thousand.
+
+The idea of an augmenting path from Hopcroft-Karp seems important. One can consider augmenting paths that turn edges so that they produce bigger results but that fails to find transformations where a superior line is produced but a set in A is now used in something that is not a superset of A's previous match.
+
+ Maximum weight matching can find one good combination of lines. But it doesn't find all of them.
+
+Algorithms for Enumerating All Perfect, Maximum and Maximal Matchings in Bipartite Graphs
+http://citeseerx.ist.psu.edu/viewdoc/download?doi=10.1.1.107.8179&rep=rep1&type=pdf
