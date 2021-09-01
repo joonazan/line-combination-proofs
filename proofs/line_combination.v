@@ -1,81 +1,29 @@
-Require Import Coq.Lists.ListSet.
 Require Import Coq.Unicode.Utf8_core.
+From mathcomp Require Import all_ssreflect.
+Set Implicit Arguments.
+Unset Strict Implicit.
+Unset Printing Implicit Defensive.
 
-Fixpoint Vec A n : Type :=
-  match n with
-  | 0 => unit
-  | S n => A * Vec A n
-  end.
+Definition Line n := n.-tuple (list nat).
+Definition Coloring n := n.-tuple nat.
 
-Fixpoint map2 {N A B C} (f: A -> B -> C) (a: Vec A N) (b: Vec B N) :=
-  match N as n return Vec A n -> Vec B n -> Vec C n with
-    | 0 => λ _ _, tt
-    | S N => λ a b, match a, b with
-      | (ah, a), (bh, b) => (f ah bh, map2 f a b)
-    end
-  end a b.
+Definition contains_unpermuted {N} (coloring: Coloring N) (line: Line N) :=
+  all (λ x, x.1 \in x.2) (zip coloring line).
 
-Fixpoint All {N} (xs: Vec Prop N) :=
-  match N as n return Vec Prop n -> Prop with
-  | 0 => λ _, True
-  | S _ => λ xs, match xs with
-    | (h, t) => h ∧ All t
-    end
-  end xs.
-
-Definition Forall2 {N A B} (a: Vec A N) (b: Vec B N) (f: A -> B -> Prop): Prop :=
-  All (map2 f a b).
-
-Definition hd {N A} (xs: Vec A (S N)) :=
-  match xs with
-  | (h, _) => h
-  end.
-
-Definition tl {N A} (xs: Vec A (S N)) :=
-  match xs with
-  | (_, t) => t
-  end.
-
-Definition Line {N} := Vec (list nat) N.
-
-Definition Coloring {N} := Vec nat N.
-
-Inductive Permutation {A} : ∀ N, Vec A N → Vec A N → Prop :=
-    perm_nil : Permutation 0 tt tt
-  | perm_skip : ∀ N x l l', Permutation N l l' → Permutation (S N) (x, l) (x, l')
-  | perm_swap : ∀ N (x y : A) (l : Vec A N), Permutation (S (S N)) (y, (x, l)) (x, (y, l))
-  | perm_trans : ∀ N l l' l'', Permutation N l l' → Permutation N l' l'' → Permutation N l l''.
-
-Local Hint Constructors Permutation : db.
-
-Lemma Permutation_refl {A} : ∀ n a, @Permutation A n a a.
-  induction n; intro; destruct a; auto with db.
-Qed.
-
-Lemma Permutation_sym {A} : ∀ n a a', @Permutation A n a a' -> @Permutation A n a' a.
-  intros.
-  induction H; eauto with db.
-Qed.
-
-Local Hint Resolve Permutation_refl Permutation_sym : db.
-
-Definition contains_unpermuted {N} (coloring: @Coloring N) (line: @Line N) : Prop :=
-  Forall2 coloring line (@set_In nat).
-
-Definition contains {N} (coloring : @Coloring N) (line : @Line N) :=
-  ∃ p, Permutation N coloring p ∧ contains_unpermuted p line.
+Definition contains {N} (coloring : Coloring N) (line : Line N) :=
+  ∃ (p : Coloring N), perm_eq p coloring ∧ contains_unpermuted p line.
 
 Notation "a ∈ L" := (contains a L) (at level 70, no associativity).
 
-Lemma contains_permutation' : ∀ N (a a' : @Coloring N) s, Permutation N a a' -> a ∈ s -> a' ∈ s.
-  intros.
-  destruct H0. destruct H0.
-  exists x.
-  split; eauto with db.
+Lemma contains_permutation' : ∀ N (a a' : Coloring N) s, perm_eq a a' -> a ∈ s -> a' ∈ s.
+  move=> n a a' s pe [x [pe2 unper]].
+  exists x; split; rewrite //.
+  by apply: perm_trans; eassumption.
 Qed.
 
-Lemma contains_permutation : ∀ N (a a' : @Coloring N) s, Permutation N a a' -> a ∈ s <-> a' ∈ s.
-  split; eauto using contains_permutation', Permutation_sym.
+Lemma contains_permutation : ∀ N (a a' : Coloring N) s, perm_eq a a' -> a ∈ s <-> a' ∈ s.
+  intros.
+  split; apply: contains_permutation'; by [ | rewrite perm_sym].
 Qed.
 
 Lemma permutation_contains' : ∀ N (a : @Coloring N) s s', Permutation N s s' -> a ∈ s -> a ∈ s'.
