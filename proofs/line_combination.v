@@ -1,5 +1,5 @@
 Require Import Coq.Unicode.Utf8_core.
-From mathcomp Require Import all_ssreflect.
+From mathcomp Require Import all_ssreflect all_fingroup.
 Set Implicit Arguments.
 Unset Strict Implicit.
 Unset Printing Implicit Defensive.
@@ -8,7 +8,7 @@ Definition Line n := n.-tuple (list nat).
 Definition Coloring n := n.-tuple nat.
 
 Definition contains_unpermuted {N} (coloring: Coloring N) (line: Line N) :=
-  all (λ x, x.1 \in x.2) (zip coloring line).
+  all2 (λ c s, c \in s) coloring line.
 
 Definition contains {N} (coloring : Coloring N) (line : Line N) :=
   ∃ (p : Coloring N), perm_eq p coloring ∧ contains_unpermuted p line.
@@ -26,28 +26,32 @@ Lemma contains_permutation : ∀ N (a a' : Coloring N) s, perm_eq a a' -> a ∈ 
   split; apply: contains_permutation'; by [ | rewrite perm_sym].
 Qed.
 
-Lemma permutation_contains' : ∀ N (a : @Coloring N) s s', Permutation N s s' -> a ∈ s -> a ∈ s'.
-  intros.
-  induction H; eauto.
-
-  destruct H0, H0.
-  destruct x0.
-  destruct H1.
-  destruct (IHPermutation v). exists v. eauto with db.
-  destruct H3.
-  exists (n, x0). split.
-  eauto with db.
-  split; eauto.
-
-  destruct H0, H, x0, v.
-  exists (n0, (n, v)).
-  split. eauto with db.
-  destruct H0, H1.
-  repeat (try assumption; split).
+Lemma tnth_zip n S T (a : n.-tuple T) (b : n.-tuple S) i :
+  tnth (zip_tuple a b) i = (tnth a i, tnth b i).
+  rewrite /tnth -nth_zip; last by rewrite !size_tuple.
+  apply: set_nth_default.
+  by rewrite size_tuple.
 Qed.
 
-Lemma permutation_contains : ∀ N (a : @Coloring N) s s', Permutation N s s' -> a ∈ s <-> a ∈ s'.
-  split; eauto using permutation_contains', Permutation_sym.
+Lemma permutation_contains' : ∀ N (a : Coloring N) (s s' : Line N), perm_eq s s' -> a ∈ s -> a ∈ s'.
+  move=> n c s s' pe.
+  rewrite /contains/contains_unpermuted. move=> [cs [pe_cs q]].
+  move: pe; rewrite perm_sym; move=> /tuple_permP [mapping smap].
+  exists [tuple tnth cs (mapping i) | i < n].
+  split.
+    apply: perm_trans; last by apply pe_cs.
+    by apply/tuple_permP; exists mapping.
+  move: q; rewrite all2E; move=> /andP [sz q]. rewrite smap all2E /=.
+  apply/andP; split.
+    by rewrite !size_tuple.
+  move: q => /all_tnthP q. apply/all_tnthP. move=> i.
+  rewrite tnth_zip !tnth_map.
+  by specialize q with (mapping (tnth (enum_tuple 'I_n) i)); rewrite tnth_zip in q.
+Qed.
+
+Lemma permutation_contains n (a : Coloring n) (s s' : Line n) :
+  perm_eq s s' -> a ∈ s <-> a ∈ s'.
+  by split; [| rewrite perm_sym in H]; apply: permutation_contains'.
 Qed.
 
 Definition nat_eq_dec: forall a b : nat, {a = b} + {a <> b}.
