@@ -4,28 +4,6 @@ Set Implicit Arguments.
 Unset Strict Implicit.
 Unset Printing Implicit Defensive.
 
-Definition Line n := n.-tuple (list nat).
-Definition Coloring n := n.-tuple nat.
-
-Definition contains_unpermuted {N} (coloring: Coloring N) (line: Line N) :=
-  all2 (λ c s, c \in s) coloring line.
-
-Definition contains {N} (coloring : Coloring N) (line : Line N) :=
-  ∃ (p : Coloring N), perm_eq p coloring ∧ contains_unpermuted p line.
-
-Notation "a ∈ L" := (contains a L) (at level 70, no associativity).
-
-Lemma contains_permutation' : ∀ N (a a' : Coloring N) s, perm_eq a a' -> a ∈ s -> a' ∈ s.
-  move=> n a a' s pe [x [pe2 unper]].
-  exists x; split; rewrite //.
-  by apply: perm_trans; eassumption.
-Qed.
-
-Lemma contains_permutation : ∀ N (a a' : Coloring N) s, perm_eq a a' -> a ∈ s <-> a' ∈ s.
-  intros.
-  split; apply: contains_permutation'; by [ | rewrite perm_sym].
-Qed.
-
 Lemma tnth_zip n S T (a : n.-tuple T) (b : n.-tuple S) i :
   tnth (zip_tuple a b) i = (tnth a i, tnth b i).
   rewrite /tnth -nth_zip; last by rewrite !size_tuple.
@@ -33,70 +11,114 @@ Lemma tnth_zip n S T (a : n.-tuple T) (b : n.-tuple S) i :
   by rewrite size_tuple.
 Qed.
 
-Lemma permutation_contains' : ∀ N (a : Coloring N) (s s' : Line N), perm_eq s s' -> a ∈ s -> a ∈ s'.
-  move=> n c s s' pe.
+Lemma all2Et n T S r (t : n.-tuple T) (s : n.-tuple S) : all2 r t s = all [pred xy | r xy.1 xy.2] (zip t s).
+  by rewrite all2E !size_tuple eq_refl.
+Qed.
+
+Lemma all2_tnthP n T S (p : T -> S -> bool) (t : n.-tuple T) (s : n.-tuple S) :
+  reflect (∀ i, p (tnth t i) (tnth s i)) (all2 p t s).
+  rewrite all2Et.
+  apply: (iffP all_tnthP);
+
+  move => /= H i; pose proof (H i); move: H0;
+  by rewrite tnth_zip.
+Qed.
+
+Section Lines.
+
+Variable alphabet_size: nat.
+Definition color := 'I_alphabet_size.
+Variable one_minus_delta: nat.
+Definition Δ := one_minus_delta.+1.
+
+Definition line := Δ.-tuple {set color}.
+Definition coloring := Δ.-tuple color.
+
+Definition contains_unpermuted (cl: coloring) (l: line) : bool :=
+  all2 (λ c (s : {set color}), c \in s) cl l.
+
+Definition contains (cl : coloring) (line : line) :=
+  ∃ p : coloring, perm_eq p cl ∧ contains_unpermuted p line.
+
+Notation "a ∈ L" := (contains a L) (at level 70, no associativity).
+
+Lemma contains_permutation' : ∀ (a a' : coloring) s, perm_eq a a' -> a ∈ s -> a' ∈ s.
+  move=> a a' s pe [x [pe2 unper]].
+  exists x; split; rewrite //.
+  by apply: perm_trans; eassumption.
+Qed.
+
+Lemma contains_permutation : ∀ (a a' : coloring) s, perm_eq a a' -> a ∈ s <-> a' ∈ s.
+  intros.
+  split; apply: contains_permutation'; by [ | rewrite perm_sym].
+Qed.
+
+Lemma permutation_contains' : ∀ (a : coloring) (s s' : line), perm_eq s s' -> a ∈ s -> a ∈ s'.
+  move=> c s s' pe.
   rewrite /contains/contains_unpermuted. move=> [cs [pe_cs q]].
   move: pe; rewrite perm_sym; move=> /tuple_permP [mapping smap].
-  exists [tuple tnth cs (mapping i) | i < n].
+  exists [tuple tnth cs (mapping i) | i < Δ].
   split.
     apply: perm_trans; last by apply pe_cs.
     by apply/tuple_permP; exists mapping.
-  move: q; rewrite all2E; move=> /andP [sz q]. rewrite smap all2E /=.
-  apply/andP; split.
-    by rewrite !size_tuple.
-  move: q => /all_tnthP q. apply/all_tnthP. move=> i.
-  rewrite tnth_zip !tnth_map.
-  by specialize q with (mapping (tnth (enum_tuple 'I_n) i)); rewrite tnth_zip in q.
+  move: q => /all2_tnthP q.
+  rewrite smap; apply/all2_tnthP; move=> i.
+  rewrite !tnth_map.
+  by apply: q.
 Qed.
 
-Lemma permutation_contains n (a : Coloring n) (s s' : Line n) :
+Lemma permutation_contains a (s s' : line) :
   perm_eq s s' -> a ∈ s <-> a ∈ s'.
   by split; [| rewrite perm_sym in H]; apply: permutation_contains'.
 Qed.
 
-Definition nat_eq_dec: forall a b : nat, {a = b} + {a <> b}.
-  decide equality.
-Defined.
+Definition combine (a : line) (b : line) : line :=
+  [tuple of (thead a) :|: (thead b)
+  :: map (λ ab, ab.1 :&: ab.2) (zip (behead a) (behead b))
+  ].
 
-Definition combination {N} (a : @Line (S N)) (b : @Line (S N)) : @Line (S N) :=
-  ( set_union nat_eq_dec (hd a) (hd b)
-  , map2 (set_inter nat_eq_dec) (tl a) (tl b)
-  ).
+Definition combination_of (a b c : line) :=
+  ∃ (a' b' : line), perm_eq a' a ∧ perm_eq b' b ∧ combine a' b' = c.
 
-Definition IsCombinationOfTwo {N} (a b c : @Line (S N)) := ∃ a' b', Permutation (S N) a' a ∧ Permutation (S N) b' b ∧ combination a' b' = c.
+Lemma combination_is_sound_helper : ∀ a b c col,
+  combine a b = c -> contains_unpermuted col c -> col ∈ a ∨ col ∈ b.
+  case/tupleP => ah a.
+  case/tupleP => bh b.
+  case/tupleP => ch c.
+  case/tupleP => colh col.
+  move=> []; rewrite !theadE => ahbhch abc.
+  rewrite /contains_unpermuted /= -ahbhch => /andP [].
+  case/setUP => colhah colc.
 
-Lemma combination_is_sound_helper1 {N} : ∀ (a b : @Line N) x, All (map2 (set_In (A:=nat)) x (map2 (set_inter nat_eq_dec) a b)) ->
-  All (map2 (set_In (A:=nat)) x a).
-  induction N; auto.
-  intros.
-  destruct x, a, b, H.
-  split; eauto using set_inter_elim1.
+  left.
+  exists [tuple of colh :: col]; split. by [].
+  rewrite /contains_unpermuted /= colhah /=.
+  rewrite -abc in colc.
+  rewrite all2E !size_tuple. apply/andP; split. by [].
+  apply/all_tnthP; move=> i.
+  rewrite tnth_zip /=.
+  move: colc => /all2_tnthP H.
+  specialize H with i; move: H; rewrite tnth_map tnth_zip /=.
+  by move=> /setIP [].
+
+  right.
+  exists [tuple of colh :: col]; split. by [].
+  rewrite /contains_unpermuted /= colhah /=.
+  rewrite -abc in colc.
+  rewrite all2E !size_tuple. apply/andP; split. by [].
+  apply/all_tnthP; move=> i.
+  rewrite tnth_zip /=.
+  move: colc => /all2_tnthP H.
+  specialize H with i; move: H; rewrite tnth_map tnth_zip /=.
+  by move=> /setIP [].
 Qed.
 
-Lemma combination_is_sound_helper2 {N} : ∀ (a b : @Line N) x, All (map2 (set_In (A:=nat)) x (map2 (set_inter nat_eq_dec) a b)) ->
-  All (map2 (set_In (A:=nat)) x b).
-  induction N; auto.
-  intros.
-  destruct x, a, b, H.
-  split; eauto using set_inter_elim2.
-Qed.
 
-Theorem combination_is_sound {N} (a : @Line (S N)) (b : @Line (S N)) :
-∀ c col, IsCombinationOfTwo a b c -> col ∈ c -> col ∈ a ∨ col ∈ b.
-  intros.
-  destruct H, H, H, H1.
-  rewrite (permutation_contains _ _ a x); auto with db.
-  rewrite (permutation_contains _ _ b x0); auto with db.
-
-  destruct col, x, x0.
-  rewrite <- H2 in H0.
-  destruct H0, H0, x.
-  destruct H3.
-  apply set_union_elim in H3; destruct H3; [left | right];
-
-  exists (n0, v2);
-  split; auto with db; split; auto;
-  eauto using combination_is_sound_helper1, combination_is_sound_helper2.
+Theorem combination_is_sound (a b c : line) col :
+  combination_of a b c -> col ∈ c -> col ∈ a ∨ col ∈ b.
+  move=> [a' [b'] [pa] [pb] comb] [col' [pcol] cu].
+  rewrite -(permutation_contains _ pa) -(permutation_contains _ pb) -!(contains_permutation _ pcol).
+  eauto using combination_is_sound_helper.
 Qed.
 
 (** Show that every maximal line is reachable via combinations *)
