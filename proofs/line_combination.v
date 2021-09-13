@@ -113,7 +113,6 @@ Lemma combination_is_sound_helper : ∀ a b c col,
   by move=> /setIP [].
 Qed.
 
-
 Theorem combination_is_sound (a b c : line) col :
   combination_of a b c -> col ∈ c -> col ∈ a ∨ col ∈ b.
   move=> [a' [b'] [pa] [pb] comb] [col' [pcol] cu].
@@ -121,35 +120,51 @@ Theorem combination_is_sound (a b c : line) col :
   eauto using combination_is_sound_helper.
 Qed.
 
-(** Show that every maximal line is reachable via combinations *)
-
-Fixpoint weight {N} (line : @Line N) : nat :=
-  match N as n return Vec (list nat) n -> nat with
-  | 0 => λ _, 0
-  | S n => λ xs, match xs with
-    | (h, t) => length h + weight t
-    end
-  end line.
-
-Lemma split_into_colorings {N} (line: @Line (S N)):
-weight line > (S N) -> ∃ a b, combination a b = line ∧ weight a < weight line ∧ weight b < weight line.
-  intros.
-Abort.
-
-Definition subset {N} (a b : @Line N) := ∀ x, x ∈ a -> x ∈ b.
+Definition subset (a b : line) := ∀ x, x ∈ a -> x ∈ b.
 Notation "a ⊆ b" := (subset a b) (at level 70, no associativity).
-Notation "a ⊈ b" := (~ subset a b) (at level 70, no associativity).
+Notation "a ⊈ b" := (~~ subset a b) (at level 70, no associativity).
 
-Definition valid {N} (line : @Line N) (input: list (@Line N)) :=
-  ∀ x, x ∈ line -> ∃ i, set_In i input ∧ x ∈ i.
+Definition singleton (l : line) := ∃ c : coloring, l = [tuple of map set1 c].
 
-Inductive IsCombinationOf {N} : @Line (S N) -> list (@Line (S N)) -> Prop :=
-    present : ∀ a lines, set_In a lines -> IsCombinationOf a lines
-  | combined : ∀ (a b c : @Line (S N)) lines, IsCombinationOf a lines -> IsCombinationOf b lines -> 
-      IsCombinationOfTwo a b c -> IsCombinationOf c lines.
+Variable input : seq line.
 
-Theorem combination_is_complete {N} (input : list (@Line (S N))) : ∀ line, valid line input -> IsCombinationOf line input.
-  intros.
+Definition valid (l : line) :=
+  ∀ x, x ∈ l -> ∃ i, x ∈ i ∧ i \in input.
+
+Lemma valid_singleton_in_input a : valid a -> singleton a -> ∃ b : line, b \in input ∧ a ⊆ b.
+  move=> v [c prf].
+  pose x := v c; move: x => [].
+    exists c; split; auto.
+    rewrite prf. apply/all2_tnthP. move=> i. rewrite tnth_map.
+    by rewrite in_set1.
+  move=> x [c_in_x x_in].
+  exists x; split; auto.
+
+  move=> c' [c'' [pe up]].
+  move: up. rewrite prf /contains_unpermuted => /all2_tnthP ceq.
+  suff ee : [forall i, tnth c'' i == tnth c i].
+    move: ee; rewrite -eqEtuple => /eqP ee.
+    by rewrite -(contains_permutation _ pe) ee.
+  apply/forallP; move=> i.
+  specialize ceq with i; rewrite tnth_map in ceq.
+  by rewrite -in_set1.
+Qed.
+
+Lemma split_into_colorings (l : line) :
+  valid l -> ∃ l', l ⊆ l' ∧ l' \in input ∨ ∃ a b, combination_of a b l ∧ a ⊂ l ∧ b ⊂ l.
+
+Lemma bigger_is_better a b a' b' : a ⊆ a' -> b ⊆ b' -> ∃ c, combination_of a' b' c ∧ combine a b ⊆ c.
+  move=> ab bb.
+
+Inductive iterated_combination : line -> list line -> Prop :=
+    present : ∀ a lines, a \in lines -> iterated_combination a lines
+  | combined : ∀ (a b c : line) lines, iterated_combination a lines -> iterated_combination b lines -> 
+      combination_of a b c -> iterated_combination c lines.
+
+Theorem combination_is_complete (input : list line) :
+  ∀ line, valid line input -> ∃ line', iterated_combination line' input ∧ line ⊆ line'.
+  move=> line validl.
+
   (* split into smallest lines, declare impossibility if some coloring is not in input *)
 Abort.
 
