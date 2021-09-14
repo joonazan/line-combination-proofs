@@ -1,4 +1,4 @@
-Require Import Coq.Unicode.Utf8_core.
+Require Import Coq.Unicode.Utf8_core Lia.
 From mathcomp Require Import all_ssreflect all_fingroup.
 Set Implicit Arguments.
 Unset Strict Implicit.
@@ -37,14 +37,14 @@ Definition coloring := Δ.-tuple color.
 Definition contains_unpermuted (cl: coloring) (l: line) : bool :=
   all2 (λ c (s : {set color}), c \in s) cl l.
 
-Definition contains (cl : coloring) (line : line) :=
-  ∃ p : coloring, perm_eq p cl ∧ contains_unpermuted p line.
+Definition contains (cl : coloring) (line : line) : bool :=
+  [exists p : coloring, perm_eq p cl && contains_unpermuted p line].
 
-Notation "a ∈ L" := (contains a L) (at level 70, no associativity).
+Notation "a ∈ L" := (contains a L) (at level 50, no associativity).
 
 Lemma contains_permutation' : ∀ (a a' : coloring) s, perm_eq a a' -> a ∈ s -> a' ∈ s.
-  move=> a a' s pe [x [pe2 unper]].
-  exists x; split; rewrite //.
+  move=> a a' s pe /existsP[x] /andP[pe2 unper].
+  apply/existsP; exists x; apply/andP; split; rewrite //.
   by apply: perm_trans; eassumption.
 Qed.
 
@@ -55,10 +55,11 @@ Qed.
 
 Lemma permutation_contains' : ∀ (a : coloring) (s s' : line), perm_eq s s' -> a ∈ s -> a ∈ s'.
   move=> c s s' pe.
-  rewrite /contains/contains_unpermuted. move=> [cs [pe_cs q]].
+  rewrite /contains/contains_unpermuted.
+  move=> /existsP[cs /andP[pe_cs q]].
   move: pe; rewrite perm_sym; move=> /tuple_permP [mapping smap].
-  exists [tuple tnth cs (mapping i) | i < Δ].
-  split.
+  apply/existsP; exists [tuple tnth cs (mapping i) | i < Δ].
+  apply/andP; split.
     apply: perm_trans; last by apply pe_cs.
     by apply/tuple_permP; exists mapping.
   move: q => /all2_tnthP q.
@@ -88,10 +89,9 @@ Lemma combination_is_sound_helper : ∀ a b c col,
   case/tupleP => colh col.
   move=> []; rewrite !theadE => ahbhch abc.
   rewrite /contains_unpermuted /= -ahbhch => /andP [].
-  case/setUP => colhah colc.
+  case/setUP => colhah colc; [left | right].
 
-  left.
-  exists [tuple of colh :: col]; split. by [].
+  apply/existsP; exists [tuple of colh :: col]. apply/andP; split. by [].
   rewrite /contains_unpermuted /= colhah /=.
   rewrite -abc in colc.
   rewrite all2E !size_tuple. apply/andP; split. by [].
@@ -101,8 +101,7 @@ Lemma combination_is_sound_helper : ∀ a b c col,
   specialize H with i; move: H; rewrite tnth_map tnth_zip /=.
   by move=> /setIP [].
 
-  right.
-  exists [tuple of colh :: col]; split. by [].
+  apply/existsP; exists [tuple of colh :: col]. apply/andP; split. by [].
   rewrite /contains_unpermuted /= colhah /=.
   rewrite -abc in colc.
   rewrite all2E !size_tuple. apply/andP; split. by [].
@@ -115,32 +114,37 @@ Qed.
 
 Theorem combination_is_sound (a b c : line) col :
   combination_of a b c -> col ∈ c -> col ∈ a ∨ col ∈ b.
-  move=> [a' [b'] [pa] [pb] comb] [col' [pcol] cu].
+  move=> [a' [b'] [pa] [pb] comb] /existsP[col' /andP[pcol] cu].
   rewrite -(permutation_contains _ pa) -(permutation_contains _ pb) -!(contains_permutation _ pcol).
   eauto using combination_is_sound_helper.
 Qed.
 
-Definition subset (a b : line) := ∀ x, x ∈ a -> x ∈ b.
-Notation "a ⊆ b" := (subset a b) (at level 70, no associativity).
-Notation "a ⊈ b" := (~~ subset a b) (at level 70, no associativity).
+Definition subset (a b : line) := [forall x, x ∈ a ==> x ∈ b].
+Notation "a ⊆ b" := (subset a b) (at level 50, no associativity).
+Notation "a ⊈ b" := (~~ subset a b) (at level 50, no associativity).
+Definition strict_subset (a b : line) := (a ⊆ b) && (b ⊈ a).
+Notation "a ⊂ b" := (strict_subset a b) (at level 50, no associativity).
 
 Definition singleton (l : line) := ∃ c : coloring, l = [tuple of map set1 c].
 
 Variable input : seq line.
+Variable input_nonempty : input <> [::].
 
 Definition valid (l : line) :=
   ∀ x, x ∈ l -> ∃ i, x ∈ i ∧ i \in input.
 
-Lemma valid_singleton_in_input a : valid a -> singleton a -> ∃ b : line, b \in input ∧ a ⊆ b.
+Definition represented (a : line) := ∃ b : line, b \in input ∧ a ⊆ b.
+
+Lemma valid_singleton_represented a : valid a -> singleton a -> represented a.
   move=> v [c prf].
   pose x := v c; move: x => [].
-    exists c; split; auto.
+    apply/existsP; exists c; apply/andP; split; auto.
     rewrite prf. apply/all2_tnthP. move=> i. rewrite tnth_map.
     by rewrite in_set1.
   move=> x [c_in_x x_in].
   exists x; split; auto.
 
-  move=> c' [c'' [pe up]].
+  apply/forallP; move=> c'; apply/implyP; move=> /existsP[c'' /andP[pe up]].
   move: up. rewrite prf /contains_unpermuted => /all2_tnthP ceq.
   suff ee : [forall i, tnth c'' i == tnth c i].
     move: ee; rewrite -eqEtuple => /eqP ee.
@@ -150,8 +154,56 @@ Lemma valid_singleton_in_input a : valid a -> singleton a -> ∃ b : line, b \in
   by rewrite -in_set1.
 Qed.
 
+Definition size_set (s : {set color}) := size (enum s).
+Definition weight (l : line) := sumn (map_tuple size_set l).
+
+Lemma broken_line_represented l : weight l < Δ -> represented l.
+  move => w.
+  suff broken : [forall x, ~~ (x ∈ l)].
+    rewrite /represented.
+    case E : input => [| input1 {}].
+      by [].
+    exists input1; split. by apply: mem_head.
+    move: broken => /forallP broken.
+    apply/forallP; move=> x.
+    apply/implyP.
+    move => t.
+    pose br := broken x; move: br.
+    by rewrite t.
+  apply/forallP => x.
+Abort.
+
+(* maybe use this for containment and subsets? *)
+Inductive matching (a : line) (b : line) (c : Δ.-tuple ({set color} * {set color})) :=
+  Matching : ∀ (a' b' : line), perm_eq a a' -> perm_eq b b' -> c = zip_tuple a' b' -> matching a b c.
+
 Lemma split_into_colorings (l : line) :
-  valid l -> ∃ l', l ⊆ l' ∧ l' \in input ∨ ∃ a b, combination_of a b l ∧ a ⊂ l ∧ b ⊂ l.
+  valid l -> (∃ i : 'I_Δ, size_set (tnth l i) > 1) -> ∃ a b, combination_of a b l ∧ a ⊂ l ∧ b ⊂ l.
+  move=> v [i ith_big].
+  case E : (enum (tnth l i)) => [|ai rest].
+    by rewrite /size_set E in ith_big.
+  case E2 : rest => [| bi resti].
+    by rewrite /size_set E E2 in ith_big.
+
+  pose big := tnth l i.
+  pose ab := [tuple of take i l ++ drop i.+1 l].
+  pose a := [tuple of big :\ bi :: ab].
+  pose b := [tuple of big :\ ai :: ab].
+
+  have sz: (minn i Δ + (Δ - i.+1)).+1 = Δ.
+  rewrite /minn.
+  have lol : i < Δ; [by [] | rewrite lol].
+  move: lol; rewrite -(rwP ltP) -plusE -minusE; lia.
+  move: a b; rewrite sz => a b.
+  
+  exists a, b.
+  split.
+    exists a, b; repeat split; auto.
+    rewrite /combine.
+
+
+  split; apply/andP; split; last first.
+  rewrite negb_forall_in.
 
 Lemma bigger_is_better a b a' b' : a ⊆ a' -> b ⊆ b' -> ∃ c, combination_of a' b' c ∧ combine a b ⊆ c.
   move=> ab bb.
