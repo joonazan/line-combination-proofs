@@ -38,7 +38,7 @@ Definition contains_unpermuted (cl: coloring) (l: line) : bool :=
   all2 (λ c (s : {set color}), c \in s) cl l.
 
 Definition contains (cl : coloring) (line : line) : bool :=
-  [exists p : coloring, perm_eq p cl && contains_unpermuted p line].
+  [exists (p : coloring | perm_eq p cl), contains_unpermuted p line].
 
 Notation "a ∈ L" := (contains a L) (at level 50, no associativity).
 
@@ -73,13 +73,13 @@ Lemma permutation_contains a (s s' : line) :
   by split; [| rewrite perm_sym in H]; apply: permutation_contains'.
 Qed.
 
-Definition combine (a : line) (b : line) : line :=
+Definition combine n (T := n.+1.-tuple {set color}) (a : T) (b : T) : T :=
   [tuple of (thead a) :|: (thead b)
   :: map (λ ab, ab.1 :&: ab.2) (zip (behead a) (behead b))
   ].
 
 Definition combination_of (a b c : line) :=
-  ∃ (a' b' : line), perm_eq a' a ∧ perm_eq b' b ∧ combine a' b' = c.
+  ∃ (a' b' c' : line), perm_eq a' a ∧ perm_eq b' b ∧ perm_eq c' c ∧ combine a' b' = c'.
 
 Lemma combination_is_sound_helper : ∀ a b c col,
   combine a b = c -> contains_unpermuted col c -> col ∈ a ∨ col ∈ b.
@@ -114,16 +114,31 @@ Qed.
 
 Theorem combination_is_sound (a b c : line) col :
   combination_of a b c -> col ∈ c -> col ∈ a ∨ col ∈ b.
-  move=> [a' [b'] [pa] [pb] comb] /existsP[col' /andP[pcol] cu].
+  move=> [a' [b'] [c'] [pa] [pb] [pc] comb].
+  rewrite -(permutation_contains _ pc) => /exists_inP[col' pcol] cu.
   rewrite -(permutation_contains _ pa) -(permutation_contains _ pb) -!(contains_permutation _ pcol).
   eauto using combination_is_sound_helper.
 Qed.
 
-Definition subset (a b : line) := [forall x, x ∈ a ==> x ∈ b].
+Definition subset a b := [forall (x | x ∈ a), x ∈ b].
 Notation "a ⊆ b" := (subset a b) (at level 50, no associativity).
 Notation "a ⊈ b" := (~~ subset a b) (at level 50, no associativity).
-Definition strict_subset (a b : line) := (a ⊆ b) && (b ⊈ a).
+Definition strict_subset a b := (a ⊆ b) && (b ⊈ a).
 Notation "a ⊂ b" := (strict_subset a b) (at level 50, no associativity).
+
+Lemma matching_subset (a b : line) :
+  (exists a' b' : line, perm_eq a a' ∧ perm_eq b b' ∧ all2 (λ x y : {set color}, x \subset y) a' b') -> a ⊆ b.
+Proof.
+  move=> [a'] [b'] [ap] [bp] /all2_tnthP sub.
+  apply/forall_inP => x.
+  rewrite (permutation_contains _ ap) (permutation_contains _ bp).
+  move=> /exists_inP[x' px cu].
+  apply/exists_inP. exists x'; auto.
+  apply/all2_tnthP => i; specialize sub with i.
+  move: cu => /all2_tnthP cu; specialize cu with i.
+  move: sub => /subsetP sub.
+  by apply: sub.
+Qed.
 
 Definition singleton (l : line) := ∃ c : coloring, l = [tuple of map set1 c].
 
@@ -154,8 +169,10 @@ Lemma valid_singleton_represented a : valid a -> singleton a -> represented a.
   by rewrite -in_set1.
 Qed.
 
-Definition size_set (s : {set color}) := size (enum s).
-Definition weight (l : line) := sumn (map_tuple size_set l).
+Definition weight (l : line) := sumn (map_tuple (λ x : {set color}, #|x|) l).
+
+Lemma subset_weight a b : a ⊆ b -> weight a <= weight b.
+Abort.
 
 Lemma broken_line_represented l : weight l < Δ -> represented l.
   move => w.
@@ -171,35 +188,80 @@ Lemma broken_line_represented l : weight l < Δ -> represented l.
     pose br := broken x; move: br.
     by rewrite t.
   apply/forallP => x.
+  rewrite negb_exists; apply/forallP => x'; rewrite negb_and.
+  apply/orP; right.
 Abort.
 
-(* maybe use this for containment and subsets? *)
-Inductive matching (a : line) (b : line) (c : Δ.-tuple ({set color} * {set color})) :=
-  Matching : ∀ (a' b' : line), perm_eq a a' -> perm_eq b b' -> c = zip_tuple a' b' -> matching a b c.
+Lemma val_tcast {T} m n (tc : n = m) (x : n.-tuple T) :
+  val (tcast tc x) = val x.
+Proof. by case: m / tc. Qed.
+
+Lemma thead_tcast {T} m n (sz : n.+1 = m.+1) (x : n.+1.-tuple T) : thead (tcast sz x) = thead x.
+  rewrite /thead tcastE.
+  by apply/tnth_nth.
+Qed.
+
+Lemma combine_tcast m n (sz : n.+1 = m.+1) a b : combine (tcast sz a) (tcast sz b) = tcast sz (combine a b).
+  apply: val_inj; rewrite val_tcast /= !thead_tcast.
+  apply eq_from_nth with (x0 := thead a).
+    by rewrite !size_tuple sz.
+  by case: m.+1 / sz.
+Qed.
+
+Lemma perm_eq_tcast {T : eqType} m n (sz : n = m) (x : n.-tuple T) (y : seq T) :
+  perm_eq (tcast sz x) y = perm_eq x y.
+Proof. by case: m / sz. Qed.
+
+Lemma head_rot T n (l : n.+1.-tuple T) (i : 'I_n.+1) x : head x (rot i l) = tnth l i.
+  case E : (i < size l).
+    by rewrite /rot (drop_nth x) //= (tnth_nth x).
+  by rewrite size_tuple ltn_ord in E.
+Qed.
 
 Lemma split_into_colorings (l : line) :
-  valid l -> (∃ i : 'I_Δ, size_set (tnth l i) > 1) -> ∃ a b, combination_of a b l ∧ a ⊂ l ∧ b ⊂ l.
+  valid l -> (∃ i : 'I_Δ, #|tnth l i| > 1) -> ∃ a b, combination_of a b l ∧ a ⊂ l ∧ b ⊂ l.
   move=> v [i ith_big].
   case E : (enum (tnth l i)) => [|ai rest].
-    by rewrite /size_set E in ith_big.
+    by rewrite cardE E in ith_big.
   case E2 : rest => [| bi resti].
-    by rewrite /size_set E E2 in ith_big.
+    by rewrite cardE E E2 in ith_big.
 
   pose big := tnth l i.
-  pose ab := [tuple of take i l ++ drop i.+1 l].
-  pose a := [tuple of big :\ bi :: ab].
-  pose b := [tuple of big :\ ai :: ab].
+  pose without_big := [tuple of behead (rot i l)].
+  pose a := [tuple of big :\ bi :: without_big].
+  pose b := [tuple of big :\ ai :: without_big].
+  have sz : Δ.-1.+1 = Δ. by [].
 
-  have sz: (minn i Δ + (Δ - i.+1)).+1 = Δ.
-  rewrite /minn.
-  have lol : i < Δ; [by [] | rewrite lol].
-  move: lol; rewrite -(rwP ltP) -plusE -minusE; lia.
-  move: a b; rewrite sz => a b.
-  
-  exists a, b.
+  exists (tcast sz a), (tcast sz b).
   split.
-    exists a, b; repeat split; auto.
-    rewrite /combine.
+    exists (tcast sz a), (tcast sz b), (tcast sz [tuple of big :: without_big]).
+      repeat split; auto.
+    rewrite perm_eq_tcast perm_sym.
+    apply/perm_consP; exists i, without_big; split; auto.
+    rewrite /without_big /=.
+    case rsplit : (rot i l).
+      have x : size (rot i l) = Δ. by rewrite size_tuple.
+      by rewrite rsplit in x.
+    by rewrite /= /big -(head_rot l i set0) rsplit.
+
+    apply: val_inj.
+    rewrite combine_tcast !val_tcast /=.
+    rewrite /a /b !theadE /=.
+    rewrite -setDIr.
+    suff no_overlap : [set bi] :&: [set ai] = set0.
+    rewrite no_overlap setD0.
+    suff x : [seq ab.1 :&: ab.2 | ab <- zip (behead (rot i l)) (behead (rot i l))] = behead (rot i l).
+      by rewrite x.
+    set x := behead (rot i l).
+    apply eq_from_nth with (x0 := set0).
+      by rewrite !size_tuple.
+    rewrite size_tuple => j js.
+    rewrite (nth_map (set0, set0));
+    by [rewrite nth_zip //= setIid | rewrite size_tuple].
+    rewrite /setI.
+    give_up.
+
+    split.
 
 
   split; apply/andP; split; last first.
