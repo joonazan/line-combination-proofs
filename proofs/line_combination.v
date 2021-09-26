@@ -260,15 +260,18 @@ Admitted.
 
 Lemma bigger_is_better a b a' b' : a ⊆ a' -> b ⊆ b' -> ∃ c, combination_of a' b' c ∧ combine a b ⊆ c.
   move=> ab bb.
+Abort.
 
-Inductive iterated_combination : line -> list line -> Prop :=
-    present : ∀ a lines, a \in lines -> iterated_combination a lines
-  | combined : ∀ (a b c : line) lines, iterated_combination a lines -> iterated_combination b lines -> 
-      combination_of a b c -> iterated_combination c lines.
+Inductive iterated_combination : line -> Prop :=
+    present : ∀ a, a \in input -> iterated_combination a
+  | combined : ∀ (a b c : line), iterated_combination a -> iterated_combination b ->
+      combination_of a b c -> iterated_combination c.
 
-Theorem combination_is_complete (input : list line) :
-  ∀ line, valid line input -> ∃ line', iterated_combination line' input ∧ line ⊆ line'.
+Theorem combination_is_complete :
+  ∀ line, valid line -> ∃ line', iterated_combination line' ∧ line ⊆ line'.
   move=> line validl.
+  case E : [exists i : 'I_Δ, #|tnth line i| > 1]; last first.
+  move: E => /existsPn.
 
   (* split into smallest lines, declare impossibility if some coloring is not in input *)
 Abort.
