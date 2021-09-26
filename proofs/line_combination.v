@@ -192,26 +192,6 @@ Lemma broken_line_represented l : weight l < Δ -> represented l.
   apply/orP; right.
 Abort.
 
-Lemma val_tcast {T} m n (tc : n = m) (x : n.-tuple T) :
-  val (tcast tc x) = val x.
-Proof. by case: m / tc. Qed.
-
-Lemma thead_tcast {T} m n (sz : n.+1 = m.+1) (x : n.+1.-tuple T) : thead (tcast sz x) = thead x.
-  rewrite /thead tcastE.
-  by apply/tnth_nth.
-Qed.
-
-Lemma combine_tcast m n (sz : n.+1 = m.+1) a b : combine (tcast sz a) (tcast sz b) = tcast sz (combine a b).
-  apply: val_inj; rewrite val_tcast /= !thead_tcast.
-  apply eq_from_nth with (x0 := thead a).
-    by rewrite !size_tuple sz.
-  by case: m.+1 / sz.
-Qed.
-
-Lemma perm_eq_tcast {T : eqType} m n (sz : n = m) (x : n.-tuple T) (y : seq T) :
-  perm_eq (tcast sz x) y = perm_eq x y.
-Proof. by case: m / sz. Qed.
-
 Lemma head_rot T n (l : n.+1.-tuple T) (i : 'I_n.+1) x : head x (rot i l) = tnth l i.
   case E : (i < size l).
     by rewrite /rot (drop_nth x) //= (tnth_nth x).
@@ -230,22 +210,24 @@ Lemma split_into_colorings (l : line) :
   pose without_big := [tuple of behead (rot i l)].
   pose a := [tuple of big :\ bi :: without_big].
   pose b := [tuple of big :\ ai :: without_big].
-  have sz : Δ.-1.+1 = Δ. by [].
+  pose l' := [tuple of big :: without_big].
 
-  exists (tcast sz a), (tcast sz b).
+  have lp : perm_eq l' l.
+  rewrite perm_sym.
+  apply/perm_consP; exists i, without_big; split; auto.
+  rewrite /without_big /=.
+  case rsplit : (rot i l).
+    have x : size (rot i l) = Δ. by rewrite size_tuple.
+    by rewrite rsplit in x.
+  by rewrite /= /big -(head_rot l i set0) rsplit.
+
+  exists a, b.
   split.
-    exists (tcast sz a), (tcast sz b), (tcast sz [tuple of big :: without_big]).
+    exists a, b, l'.
       repeat split; auto.
-    rewrite perm_eq_tcast perm_sym.
-    apply/perm_consP; exists i, without_big; split; auto.
-    rewrite /without_big /=.
-    case rsplit : (rot i l).
-      have x : size (rot i l) = Δ. by rewrite size_tuple.
-      by rewrite rsplit in x.
-    by rewrite /= /big -(head_rot l i set0) rsplit.
 
     apply: val_inj.
-    rewrite combine_tcast !val_tcast /=.
+    rewrite /=.
     rewrite /a /b !theadE /=.
     rewrite -setDIr.
     suff no_overlap : [set bi] :&: [set ai] = set0.
@@ -258,14 +240,23 @@ Lemma split_into_colorings (l : line) :
     rewrite size_tuple => j js.
     rewrite (nth_map (set0, set0));
     by [rewrite nth_zip //= setIid | rewrite size_tuple].
-    rewrite /setI.
     give_up.
 
-    split.
+    rewrite perm_sym in lp.
+    rewrite /strict_subset; split; apply/andP; split.
+      apply: matching_subset.
+      exists a, l'; repeat split; auto.
+      rewrite all2Et /=.
+      apply/andP; split.
+        by apply: subD1set.
+      apply/all_tnthP => j.
+      by rewrite tnth_zip /=.
 
-
-  split; apply/andP; split; last first.
-  rewrite negb_forall_in.
+      case l_in_a: (l ⊆ a).
+      apply subset_weight in l_in_a.
+      move: l_in_a.
+      rewrite /weight /=.
+Admitted.
 
 Lemma bigger_is_better a b a' b' : a ⊆ a' -> b ⊆ b' -> ∃ c, combination_of a' b' c ∧ combine a b ⊆ c.
   move=> ab bb.
