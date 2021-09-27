@@ -24,6 +24,9 @@ Lemma all2_tnthP n T S (p : T -> S -> bool) (t : n.-tuple T) (s : n.-tuple S) :
   by rewrite tnth_zip.
 Qed.
 
+Ltac liafy := rewrite -?(rwP leP) -?(rwP ltP) -?(rwP negP) -?(rwP eqP) -?plusE.
+Ltac sslia := liafy; lia.
+
 Section Lines.
 
 Variable alphabet_size: nat.
@@ -31,7 +34,9 @@ Definition color := 'I_alphabet_size.
 Variable one_minus_delta: nat.
 Definition Δ := one_minus_delta.+1.
 
-Definition line := Δ.-tuple {set color}.
+Definition nline n := n.-tuple {set color}.
+Notation "n .-line" := (nline n) (at level 30, no associativity).
+Definition line := Δ.-line.
 Definition coloring := Δ.-tuple color.
 
 Definition contains_unpermuted (cl: coloring) (l: line) : bool :=
@@ -73,7 +78,7 @@ Lemma permutation_contains a (s s' : line) :
   by split; [| rewrite perm_sym in H]; apply: permutation_contains'.
 Qed.
 
-Definition combine n (T := n.+1.-tuple {set color}) (a : T) (b : T) : T :=
+Definition combine m (n := m.+1) (a : n.-line) (b : n.-line) : n.-line :=
   [tuple of (thead a) :|: (thead b)
   :: map (λ ab, ab.1 :&: ab.2) (zip (behead a) (behead b))
   ].
@@ -120,16 +125,24 @@ Theorem combination_is_sound (a b c : line) col :
   eauto using combination_is_sound_helper.
 Qed.
 
-Definition subset a b := [forall (x | x ∈ a), x ∈ b].
+Definition subset {n} (a b : n.-line) :=
+  [exists a' : n.-line, exists b' : n.-line, perm_eq a a' && perm_eq b b' && all2 (λ x y : {set color}, x \subset y) a' b'].
 Notation "a ⊆ b" := (subset a b) (at level 50, no associativity).
 Notation "a ⊈ b" := (~~ subset a b) (at level 50, no associativity).
-Definition strict_subset a b := (a ⊆ b) && (b ⊈ a).
+Definition strict_subset {n} (a b : n.-line) := (a ⊆ b) && (b ⊈ a).
 Notation "a ⊂ b" := (strict_subset a b) (at level 50, no associativity).
 
+Lemma subset_refl {n} (a : n.-line) : a ⊆ a.
+  apply/existsP; exists a.
+  apply/existsP; exists a.
+  apply/andP; split; first by apply/andP; split.
+  by apply/all2_tnthP.
+Qed.
+
 Lemma matching_subset (a b : line) :
-  (exists a' b' : line, perm_eq a a' ∧ perm_eq b b' ∧ all2 (λ x y : {set color}, x \subset y) a' b') -> a ⊆ b.
+  a ⊆ b -> [forall (x | x ∈ a), x ∈ b].
 Proof.
-  move=> [a'] [b'] [ap] [bp] /all2_tnthP sub.
+  move=> /existsP[a'] /existsP[b'] /andP[/andP[ap bp]] /all2_tnthP sub.
   apply/forall_inP => x.
   rewrite (permutation_contains _ ap) (permutation_contains _ bp).
   move=> /exists_inP[x' px cu].
@@ -140,57 +153,90 @@ Proof.
   by apply: sub.
 Qed.
 
-Definition singleton (l : line) := ∃ c : coloring, l = [tuple of map set1 c].
-
 Variable input : seq line.
 Variable input_nonempty : input <> [::].
 
 Definition valid (l : line) :=
-  ∀ x, x ∈ l -> ∃ i, x ∈ i ∧ i \in input.
+  forall x, x ∈ l -> [exists i in input, x ∈ i].
 
-Definition represented (a : line) := ∃ b : line, b \in input ∧ a ⊆ b.
-
-Lemma valid_singleton_represented a : valid a -> singleton a -> represented a.
-  move=> v [c prf].
-  pose x := v c; move: x => [].
-    apply/existsP; exists c; apply/andP; split; auto.
-    rewrite prf. apply/all2_tnthP. move=> i. rewrite tnth_map.
-    by rewrite in_set1.
-  move=> x [c_in_x x_in].
-  exists x; split; auto.
-
-  apply/forallP; move=> c'; apply/implyP; move=> /existsP[c'' /andP[pe up]].
-  move: up. rewrite prf /contains_unpermuted => /all2_tnthP ceq.
-  suff ee : [forall i, tnth c'' i == tnth c i].
-    move: ee; rewrite -eqEtuple => /eqP ee.
-    by rewrite -(contains_permutation _ pe) ee.
-  apply/forallP; move=> i.
-  specialize ceq with i; rewrite tnth_map in ceq.
-  by rewrite -in_set1.
+Lemma subset_valid (a b : line) : a ⊆ b -> valid b -> valid a.
+  move=> /matching_subset/forall_inP ss vb x x_in_a.
+  by apply: vb; apply: ss.
 Qed.
 
-Definition weight (l : line) := sumn (map_tuple (λ x : {set color}, #|x|) l).
+Definition weight (l : seq {set color}) := \sum_(i <- l) #|i|.
 
-Lemma subset_weight a b : a ⊆ b -> weight a <= weight b.
-Abort.
+Lemma sum_map {T} f (a : seq T) : \sum_(i <- a) f i = \sum_(i <- map f a) i.
+  elim: a.
+    by rewrite -foldrE big_nil.
+  move=> a l IH.
+  by rewrite /= !big_cons IH.
+Qed.
 
-Lemma broken_line_represented l : weight l < Δ -> represented l.
-  move => w.
-  suff broken : [forall x, ~~ (x ∈ l)].
-    rewrite /represented.
-    case E : input => [| input1 {}].
-      by [].
-    exists input1; split. by apply: mem_head.
-    move: broken => /forallP broken.
-    apply/forallP; move=> x.
-    apply/implyP.
-    move => t.
-    pose br := broken x; move: br.
-    by rewrite t.
-  apply/forallP => x.
-  rewrite negb_exists; apply/forallP => x'; rewrite negb_and.
-  apply/orP; right.
-Abort.
+Lemma perm_weight {n} (a a' : n.-line) : perm_eq a a' -> weight a = weight a'.
+  move=> pe; rewrite /weight [in RHS]sum_map sum_map -!sumnE.
+  by apply: perm_sumn; apply: perm_map.
+Qed.
+
+Lemma subset_weight {n} (a b : n.-line) : a ⊆ b -> weight a <= weight b.
+  move=> /existsP[a'] /existsP[b'] /andP[/andP[pa pb] /all2_tnthP ss].
+  rewrite (perm_weight pa) (perm_weight pb).
+  rewrite /weight !big_tuple.
+  apply: leq_sum => i _.
+  by apply: subset_leq_card.
+Qed.
+
+Lemma strict_subset_weight_math a1 a2 b1 b2 c1 c2 :
+  a1 <= a2 -> b1 < b2 -> c1 <= c2 -> a1 + (b1 + c1) < a2 + (b2 + c2).
+Proof. by sslia. Qed.
+
+Lemma strict_subset_weight (a b : line) : a ⊂ b -> weight a < weight b.
+  move=> /andP[] /existsP[a'] /existsP[b'] /andP[/andP[pa pb] /all2_tnthP ss].
+  rewrite /subset negb_exists => /forallP; move/(_ b').
+  rewrite /subset negb_exists => /forallP; move/(_ a').
+  rewrite pa pb /= => /all2_tnthP nss.
+  rewrite (perm_weight pa) (perm_weight pb) /weight.
+  move: nss => /forallP/forallPn[badi nss].
+  have problem : #|tnth a' badi| < #|tnth b' badi|.
+    by rewrite (ltn_leqif (subset_leqif_card (ss badi))).
+
+  have apcs : val a' = take badi a' ++ tnth a' badi :: drop badi.+1 a'.
+    by rewrite -drop_nth ?size_tuple // cat_take_drop.
+  have bpcs : val b' = take badi b' ++ tnth b' badi :: drop badi.+1 b'.
+    by rewrite -drop_nth ?size_tuple // cat_take_drop.
+  rewrite apcs bpcs !big_cat !big_cons /=.
+  apply: strict_subset_weight_math; rewrite // subset_weight //.
+
+  apply/existsP; exists (take_tuple badi a').
+  apply/existsP; exists (take_tuple badi b').
+  apply/andP; split; first (apply/andP; by split).
+  apply/all2_tnthP => i. rewrite !(tnth_nth set0) !nth_take;
+    try (move: (ltn_ord i) (geq_minl badi Δ); sslia).
+  move: ss. setoid_rewrite (tnth_nth set0). move/(_ (widen_ord _ i)) => x. apply: x.
+  apply: geq_minr.
+
+  apply/existsP; exists (drop_tuple badi.+1 a').
+  apply/existsP; exists (drop_tuple badi.+1 b').
+  apply/andP; split; first (apply/andP; by split).
+  apply/all2_tnthP => i. rewrite !(tnth_nth set0) !nth_drop.
+  case E : (badi.+1 + i < Δ).
+    move: ss. setoid_rewrite (tnth_nth set0).  move/(_ (inord (badi.+1 + i))). by rewrite inordK.
+  by rewrite !nth_default // size_tuple leqNgt E.
+Qed.
+
+Definition nonzero := all (λ x : {set color}, #|x| != 0).
+
+Lemma nonzero_rot x i : nonzero x -> nonzero (rot i x).
+  move=> v.
+  by rewrite /nonzero (@perm_all _  _ x) // perm_rot.
+Qed.
+
+Lemma nonzero_behead x : nonzero x -> nonzero (behead x).
+Proof. case x. done. by move=> s ll /= /andP[]. Qed.
+
+Lemma size_contradiction a b : a < b -> a >= b -> false.
+  by sslia.
+Qed.
 
 Lemma head_rot T n (l : n.+1.-tuple T) (i : 'I_n.+1) x : head x (rot i l) = tnth l i.
   case E : (i < size l).
@@ -199,12 +245,17 @@ Lemma head_rot T n (l : n.+1.-tuple T) (i : 'I_n.+1) x : head x (rot i l) = tnth
 Qed.
 
 Lemma split_into_colorings (l : line) :
-  valid l -> (∃ i : 'I_Δ, #|tnth l i| > 1) -> ∃ a b, combination_of a b l ∧ a ⊂ l ∧ b ⊂ l.
-  move=> v [i ith_big].
+  valid l -> nonzero l -> (∃ i : 'I_Δ, #|tnth l i| > 1) ->
+  ∃ a b, combination_of a b l ∧
+  a ⊂ l ∧ b ⊂ l ∧
+  nonzero a ∧ nonzero b.
+Proof.
+  move=> v nz [i ith_big].
   case E : (enum (tnth l i)) => [|ai rest].
     by rewrite cardE E in ith_big.
   case E2 : rest => [| bi resti].
     by rewrite cardE E E2 in ith_big.
+  rewrite E2 in E.
 
   pose big := tnth l i.
   pose without_big := [tuple of behead (rot i l)].
@@ -240,41 +291,154 @@ Lemma split_into_colorings (l : line) :
     rewrite size_tuple => j js.
     rewrite (nth_map (set0, set0));
     by [rewrite nth_zip //= setIid | rewrite size_tuple].
-    give_up.
+    apply/setP/eqfunP/forallP => x.
+    rewrite in_set0 in_setI !in_set1.
+    suff ne: bi != ai.
+      case X: (x == bi). by move: X => /eqP X; rewrite X eqbF_neg. by [].
+    have unik := enum_uniq (tnth l i); move: unik.
+    rewrite E /= => /andP[] /memPn bi_not_ai trash.
+    by apply: bi_not_ai; rewrite inE; apply/orP; left.
 
     rewrite perm_sym in lp.
-    rewrite /strict_subset; split; apply/andP; split.
-      apply: matching_subset.
-      exists a, l'; repeat split; auto.
+    rewrite /strict_subset; split; [apply/andP; split | split; [apply/andP; split | split]].
+      apply/existsP; exists a; apply/existsP; exists l'.
+      apply/andP; split.
+        by apply/andP; split; auto.
       rewrite all2Et /=.
       apply/andP; split.
         by apply: subD1set.
       apply/all_tnthP => j.
       by rewrite tnth_zip /=.
 
-      case l_in_a: (l ⊆ a).
+      case l_in_a: (l ⊆ a); last by [].
       apply subset_weight in l_in_a.
       move: l_in_a.
-      rewrite /weight /=.
-Admitted.
+      rewrite (perm_weight lp) /weight /= !big_cons leq_add2r.
+      apply: size_contradiction.
+      apply: proper_card.
+      apply: properD1.
+      rewrite -mem_enum E.
+      by rewrite inE; apply/orP; right; rewrite inE; apply/orP; left.
 
-Lemma bigger_is_better a b a' b' : a ⊆ a' -> b ⊆ b' -> ∃ c, combination_of a' b' c ∧ combine a b ⊆ c.
-  move=> ab bb.
+      apply/existsP; exists b; apply/existsP; exists l'.
+      apply/andP; split.
+        by apply/andP; split; auto.
+      rewrite all2Et /=.
+      apply/andP; split.
+        by apply: subD1set.
+      apply/all_tnthP => j.
+      by rewrite tnth_zip /=.
+
+      case l_in_a: (l ⊆ b); last by [].
+      apply subset_weight in l_in_a.
+      move: l_in_a.
+      rewrite (perm_weight lp) /weight /= !big_cons leq_add2r.
+      apply: size_contradiction.
+      apply: proper_card.
+      apply: properD1.
+      rewrite -mem_enum E.
+      by rewrite inE; apply/orP; left.
+
+      rewrite /=; apply/andP; split.
+        move: (@cardsD1 _ bi big) ith_big.
+        case (bi \in big); rewrite /big /=; sslia.
+      by apply: nonzero_behead; apply: nonzero_rot.
+
+      rewrite /=; apply/andP; split.
+        move: (@cardsD1 _ ai big) ith_big.
+        case (ai \in big); rewrite /big /=; sslia.
+      by apply: nonzero_behead; apply: nonzero_rot.
+Qed.
+
+Lemma strict_subset_wf' : ∀ len (a : line), weight a < len -> Acc strict_subset a.
+  elim; first done.
+  move=> n IH a wa.
+  apply: Acc_intro => y /strict_subset_weight ywo; apply: IH.
+  move: wa ywo; sslia.
+Defined.
+
+Lemma strict_subset_wf : well_founded (@strict_subset Δ).
+  red; eauto using strict_subset_wf'.
+Defined.
+
+Lemma line_split_ind (P : line -> Prop) :
+  (∀ x: line, (∀ i, #|tnth x i| <= 1) -> P x) ->
+  (∀ a b : line, P a -> P b -> P (combine a b)) ->
+  ∀ x, P x.
 Abort.
+
+Lemma bigger_is_better a b c a' b' : a ⊆ a' -> b ⊆ b' -> combination_of a b c -> ∃ c', combination_of a' b' c' ∧ c ⊆ c'.
+  move=> /existsP[a_] /existsP[a'_] /andP[/andP[/tuple_permP[a_sub a_subp] a'_sub]] a2
+         /existsP[b_] /existsP[b'_] /andP[/andP[/tuple_permP[b_sub b_subp] b'_sub]] b2 comb.
+  move: a'_sub; rewrite perm_sym => /tuple_permP[sub_a' sub_a'p].
+  move: b'_sub; rewrite perm_sym => /tuple_permP[sub_b' sub_b'p].
+  move: comb => [ac][bc][cc][/tuple_permP[comb_a comb_ap]][/tuple_permP[comb_b comb_bp]][/tuple_permP[comb_c comb_cp]] comb.
+  pose comb_a' := (comb_a * a_sub * sub_a')%g.
+  pose comb_b' := (comb_b * b_sub * sub_b')%g.
+  pose a'' := [tuple tnth a' (comb_a' i) | i < Δ].
+  pose b'' := [tuple tnth b' (comb_b' i) | i < Δ].
+  exists (combine a'' b''); split.
+  exists a'', b''.
+  exists (combine a'' b''); split.
+    by apply/tuple_permP; exists comb_a'.
+  split. by apply/tuple_permP; exists comb_b'.
+  by split.
+  apply/existsP; exists [tuple tnth c (comb_c i) | i < Δ].
+  apply/existsP; exists (combine a'' b'').
+  apply/andP; split.
+  apply/andP; split.
+    by rewrite perm_sym; apply/tuple_permP; exists comb_c.
+  by [].
+  apply/all2_tnthP => i.
+  rewrite tnth_map. rewrite !(tnth_nth set0) /tnth nth_ord_enum.
+Admitted.
 
 Inductive iterated_combination : line -> Prop :=
     present : ∀ a, a \in input -> iterated_combination a
   | combined : ∀ (a b c : line), iterated_combination a -> iterated_combination b ->
       combination_of a b c -> iterated_combination c.
 
-Theorem combination_is_complete :
-  ∀ line, valid line -> ∃ line', iterated_combination line' ∧ line ⊆ line'.
-  move=> line validl.
-  case E : [exists i : 'I_Δ, #|tnth line i| > 1]; last first.
-  move: E => /existsPn.
+Lemma coloring_in_singleton (l : line) : (∀ i : 'I_Δ, #|tnth l i| == 1) -> ∃ c, l = map_tuple set1 c.
+  move=> sz.
+  have hlp (s : {set color}) : #|s| == 1 -> ∃ x, s == [set x].
+    move=> /eqP.
+    give_up.
+  (*exists [tuple hlp (tnth l i) (sz i) | i < Δ].*)
+Admitted.
 
-  (* split into smallest lines, declare impossibility if some coloring is not in input *)
-Abort.
+Theorem combination_is_complete :
+  ∀ line, valid line -> nonzero line -> ∃ line', iterated_combination line' ∧ line ⊆ line'.
+  elim/(well_founded_induction strict_subset_wf) => orig IH vorig nz.
+  case E : [exists i : 'I_Δ, #|tnth orig i| > 1].
+    move=> /existsP in E.
+    move: (split_into_colorings vorig nz E) => [a][b][comb][lta][ltb][nza nzb].
+    move: (IH a) => []//. apply: subset_valid. move: lta => /andP[]. by eauto. by []. move=> a' [a'c a'b].
+    move: (IH b) => []//. apply: subset_valid. move: ltb => /andP[lol _]. apply: lol. by []. move=> b' [b'c b'b].
+    move: (bigger_is_better a'b b'b comb) => [c'][comb' sz].
+    exists c'; split.
+      by apply: (combined a'c b'c).
+    done.
+
+  move=> /existsPn in E.
+  have sz: ∀ i, #|tnth orig i| == 1. move=> i.
+    move=> /all_tnthP in nz.
+    move: (E i) (nz i); case (#|tnth orig i|) => [//|]; by case.
+  move:(coloring_in_singleton sz) => [col col_line].
+  have col_good : col ∈ orig.
+    rewrite col_line; apply/exists_inP; exists col. done.
+    apply/all2_tnthP => i. rewrite tnth_map. by apply: set11.
+
+  move: (vorig col col_good) => /exists_inP[inp inp2 /exists_inP[col' colp up]].
+  exists inp; split.
+    by apply: present.
+  apply/existsP; exists (map_tuple set1 col').
+  apply/existsP; exists inp.
+  apply/andP; split; [apply/andP; split; [|done]| apply/all2_tnthP => i].
+    by rewrite col_line perm_map // perm_sym.
+  rewrite tnth_map.
+  move: up => /all2_tnthP up; move: (up i).
+  by rewrite sub1set.
+Qed.
 
 Theorem combining_two_suffices {N} (lines : list (@Line (S N))) (missing : @Line (S N)):
 (∀ line, set_In line lines -> missing ⊈ line) -> valid missing lines ->
