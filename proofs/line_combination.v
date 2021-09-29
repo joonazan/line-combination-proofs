@@ -154,6 +154,34 @@ Lemma subset_refl {n} (a : n.-line) : a ⊆ a.
   by apply/all2_tnthP.
 Qed.
 
+Lemma any_perm n (p : 'S_n) (c : n.-line) : perm_eq c [tuple tnth c (p i) | i < n].
+  apply/tuple_permP; exists (p^-1)%g.
+  have h : (λ i, tnth c (p ((p^-1)%g i))) =1 tnth c.
+    by rewrite /eqfun => i; rewrite permKV.
+  by rewrite mktuple_mktuple (eq_mktuple _ h) /= map_tnth_enum.
+Qed.
+
+Lemma subset_trans {n} (a b c : n.-line) : a ⊆ b -> b ⊆ c -> a ⊆ c.
+  move=> /existsP[a'] /existsP[b'] /andP[/andP[pa pb] /all2_tnthP ss].
+  move=> /existsP[b''] /existsP[c''] /andP[/andP[pb2 pc] /all2_tnthP ss2].
+  have one_to_two : perm_eq b' b''.
+    by apply: perm_trans; [rewrite perm_sym; apply pb|].
+  move: one_to_two => /tuple_permP[p pp].
+  apply/existsP; exists a'.
+  apply/existsP; exists [tuple tnth c'' (p i) | i < n].
+  apply/andP; split.
+    apply/andP; split. done.
+    move: pc; rewrite perm_sym; move=> /tuple_permP[p2 pp2].
+    rewrite (val_inj pp2) mktuple_mktuple.
+    have ll : (λ i, tnth c (p2 (p i))) =1 λ i, tnth c ((p * p2)%g i).
+      by move=> i; rewrite permM.
+    by rewrite (eq_mktuple _ ll); apply: any_perm.
+  apply/all2_tnthP => i; rewrite tnth_mktuple.
+  apply: subset_trans; last apply: ss2.
+  move: pp => /val_inj/eqP. rewrite eqEtuple => /forallP.
+  by move/(_ i); rewrite tnth_mktuple => /eqP x; rewrite -x.
+Qed.
+
 Lemma matching_subset (a b : line) :
   a ⊆ b -> [forall (x | x ∈ a), x ∈ b].
 Proof.
@@ -438,9 +466,9 @@ Lemma bigger_is_better a b c a' b' : a ⊆ a' -> b ⊆ b' -> combination_of a b 
 Qed.
 
 Inductive iterated_combination : line -> Prop :=
-    present : ∀ a, a \in input -> iterated_combination a
+    present : ∀ a, a \in input -> nonzero a -> iterated_combination a
   | combined : ∀ (a b c : line), iterated_combination a -> iterated_combination b ->
-      combination_of a b c -> iterated_combination c.
+      combination_of a b c -> nonzero c -> iterated_combination c.
 
 Definition color_of_set1 (s : {set color}) (prf : #|s| = 1) : color :=
   thead (eq_rect _ (tuple_of^~ color) (enum_tuple s) _ prf).
@@ -463,6 +491,14 @@ Lemma coloring_in_singleton (l : line) : (∀ i : 'I_Δ, #|tnth l i| == 1) -> �
   by rewrite !tnth_map set1_color_of_set1 tnth_ord_tuple.
 Qed.
 
+Lemma bigger_nonzero (a b : line) : a ⊆ b -> nonzero a -> nonzero b.
+  move=> /existsP[a'] /existsP[b'] /andP[/andP[pa pb] /all2_tnthP ss nz].
+  move: nz; rewrite /nonzero (perm_all _ pb) (perm_all _ pa) => /all_tnthP nz.
+  apply/all_tnthP => i; move: (ss i) (nz i) => ss2.
+  move: (subset_leq_card ss2).
+  by case: #|tnth b' i|; case: #|tnth a' i|.
+Qed.
+
 Theorem combination_is_complete :
   ∀ line, valid line -> nonzero line -> ∃ line', iterated_combination line' ∧ line ⊆ line'.
   elim/(well_founded_induction strict_subset_wf) => orig IH vorig nz.
@@ -473,7 +509,7 @@ Theorem combination_is_complete :
     move: (IH b) => []//. apply: subset_valid. move: ltb => /andP[lol _]. apply: lol. by []. move=> b' [b'c b'b].
     move: (bigger_is_better a'b b'b comb) => [c'][comb' sz].
     exists c'; split.
-      by apply: (combined a'c b'c).
+      by apply: (combined a'c b'c) => //; apply: (bigger_nonzero sz).
     done.
 
   move=> /existsPn in E.
@@ -486,17 +522,58 @@ Theorem combination_is_complete :
     apply/all2_tnthP => i. rewrite tnth_map. by apply: set11.
 
   move: (vorig col col_good) => /exists_inP[inp inp2 /exists_inP[col' colp up]].
-  exists inp; split.
-    by apply: present.
-  apply/existsP; exists (map_tuple set1 col').
-  apply/existsP; exists inp.
-  apply/andP; split; [apply/andP; split; [|done]| apply/all2_tnthP => i].
-    by rewrite col_line perm_map // perm_sym.
-  rewrite tnth_map.
-  move: up => /all2_tnthP up; move: (up i).
-  by rewrite sub1set.
+  exists inp.
+  have orig_lt_inp: orig ⊆ inp.
+    apply/existsP; exists (map_tuple set1 col').
+    apply/existsP; exists inp.
+    apply/andP; split; [apply/andP; split; [|done]| apply/all2_tnthP => i].
+      by rewrite col_line perm_map // perm_sym.
+    rewrite tnth_map.
+    move: up => /all2_tnthP up; move: (up i).
+    by rewrite sub1set.
+  split.
+    by apply: present => //; apply: (bigger_nonzero orig_lt_inp).
+  done.
 Qed.
 
-Theorem combining_two_suffices {N} (lines : list (@Line (S N))) (missing : @Line (S N)):
-(∀ line, set_In line lines -> missing ⊈ line) -> valid missing lines ->
-  ∃ a b c, set_In a lines ∧ set_In b lines ∧ IsCombinationOfTwo a b c ∧ ∀ line, set_In line lines -> c ⊈ line.
+Definition missing x := [forall y in input, x ⊈ y].
+
+Lemma bigger_missing a b : a ⊆ b -> missing a -> missing b.
+  (*move=> /existsP[a'] /existsP[b'] /andP[/andP[pa pb] /all2_tnthP ss].*)
+  move=> ab /forall_inP m.
+  apply/forall_inP => i ii.
+  move: (m i ii).
+  case E : (b ⊈ i) => //.
+  move: E => /eqP. rewrite eqbF_neg => /negPn bi.
+  move: (subset_trans ab bi) => lol.
+  by rewrite lol.
+Qed.
+
+Lemma combination_chain x : iterated_combination x ->
+  (∃ x', x ⊆ x' ∧ x' \in input) ∨ ∃ a b c, a \in input ∧ b \in input ∧ combination_of a b c ∧ nonzero c ∧ missing c.
+  elim.
+    move=> a aa; left; exists a; split; by [apply: subset_refl |].
+  move=> a b c ica [IHa|IHa] icb [IHb|IHb] comb; [|by right|by right|by right].
+  case E : (missing c); last first.
+    move: E => /forall_inPn[c' cin /negPn cc]; left; exists c'; by split.
+  move: IHa IHb => [a' [asub ain]] [b' [bsub bin]].
+  move: (bigger_is_better asub bsub comb) => [c' [comb' cc]].
+  right; exists a', b', c'; split; [done| split; [done| split; [done | split]]].
+    by apply: (bigger_nonzero cc).
+  by apply: (bigger_missing cc).
+Qed.
+
+Theorem combining_two_suffices (x : line):
+  missing x -> nonzero x -> valid x ->
+  ∃ a b c, a \in input ∧ b \in input ∧ combination_of a b c ∧ nonzero c ∧ missing c.
+Proof.
+  move=> missing_prf missingnz missingv.
+  move: (combination_is_complete missingv missingnz) => [missing_super][ic super].
+  move: (combination_chain ic) => [[super2 [super2' super2in]]|yup].
+    exfalso.
+    have: missing super2.
+      by apply: (bigger_missing super2'); apply: (bigger_missing super).
+    move=> /forall_inP; move/ (_ super2 super2in).
+    by rewrite subset_refl.
+  by [].
+Qed.
