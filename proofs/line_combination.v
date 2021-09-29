@@ -24,6 +24,21 @@ Lemma all2_tnthP n T S (p : T -> S -> bool) (t : n.-tuple T) (s : n.-tuple S) :
   by rewrite tnth_zip.
 Qed.
 
+Lemma subset_perm {n} {T : finType} (p : 'S_n) (a b : n.-tuple {set T}) :
+  all2 (λ x y : {set T}, x \subset y) a b <->
+  all2 (λ x y : {set T}, x \subset y) [tuple tnth a (p i)  | i < n] [tuple tnth b (p i)  | i < n].
+  split; move=> /all2_tnthP => pre; apply/all2_tnthP => i.
+    rewrite !tnth_map tnth_ord_tuple; by apply: pre.
+  move: (pre (p^-1 i)%g); rewrite !tnth_map tnth_ord_tuple.
+  by rewrite permKV.
+Qed.
+
+Lemma mktuple_mktuple {n T} (a : n.-tuple T) f g :
+  [tuple tnth [tuple tnth a (g i0)  | i0 < n] (f i) | i < n] = [tuple tnth a (g (f i)) | i < n].
+  apply: eq_mktuple.
+  by rewrite /eqfun => i; rewrite tnth_mktuple.
+Qed.
+
 Ltac liafy := rewrite -?(rwP leP) -?(rwP ltP) -?(rwP negP) -?(rwP eqP) -?plusE.
 Ltac sslia := liafy; lia.
 
@@ -361,15 +376,22 @@ Lemma strict_subset_wf : well_founded (@strict_subset Δ).
   red; eauto using strict_subset_wf'.
 Defined.
 
-Lemma line_split_ind (P : line -> Prop) :
-  (∀ x: line, (∀ i, #|tnth x i| <= 1) -> P x) ->
-  (∀ a b : line, P a -> P b -> P (combine a b)) ->
-  ∀ x, P x.
-Abort.
+Lemma bigger_is_better' (a a' b b' : line) :
+  all2 (λ x y : {set color}, x \subset y) a a' ->
+  all2 (λ x y : {set color}, x \subset y) b b' ->
+  all2 (λ x y : {set color}, x \subset y) (combine a b) (combine a' b').
+Proof.
+  rewrite /combine => /all2_tnthP-aa /all2_tnthP-bb /=.
+  apply/andP; split.
+    by rewrite /thead setUSS.
+  apply/all2_tnthP => i; by rewrite !tnth_map !tnth_zip !tnth_behead /= setISS.
+Qed.
 
 Lemma bigger_is_better a b c a' b' : a ⊆ a' -> b ⊆ b' -> combination_of a b c -> ∃ c', combination_of a' b' c' ∧ c ⊆ c'.
-  move=> /existsP[a_] /existsP[a'_] /andP[/andP[/tuple_permP[a_sub a_subp] a'_sub]] a2
-         /existsP[b_] /existsP[b'_] /andP[/andP[/tuple_permP[b_sub b_subp] b'_sub]] b2 comb.
+  move=> /existsP[a_] /existsP[a'_] /andP[/andP[peaa a'_sub]] a2
+         /existsP[b_] /existsP[b'_] /andP[/andP[pebb b'_sub]] b2 comb.
+  move: (tuple_permP peaa) => [a_sub a_subp].
+  move: (tuple_permP pebb) => [b_sub b_subp].
   move: a'_sub; rewrite perm_sym => /tuple_permP[sub_a' sub_a'p].
   move: b'_sub; rewrite perm_sym => /tuple_permP[sub_b' sub_b'p].
   move: comb => [ac][bc][cc][/tuple_permP[comb_a comb_ap]][/tuple_permP[comb_b comb_bp]][/tuple_permP[comb_c comb_cp]] comb.
@@ -389,22 +411,57 @@ Lemma bigger_is_better a b c a' b' : a ⊆ a' -> b ⊆ b' -> combination_of a b 
   apply/andP; split.
     by rewrite perm_sym; apply/tuple_permP; exists comb_c.
   by [].
-  apply/all2_tnthP => i.
-  rewrite tnth_map. rewrite !(tnth_nth set0) /tnth nth_ord_enum.
-Admitted.
+  rewrite -comb_cp -comb.
+  apply: bigger_is_better'.
+
+  rewrite comb_ap /a'' /comb_a'.
+  move: a2. rewrite sub_a'p.
+  move: peaa; rewrite perm_sym => /tuple_permP[a_sub_ a_subp_]; rewrite a_subp_.
+  rewrite (subset_perm (a_sub)) !mktuple_mktuple (subset_perm comb_a) !mktuple_mktuple.
+  have hlp : (λ i, tnth a' ((comb_a * a_sub * sub_a')%g i)) =1 λ i, tnth a' (sub_a' (a_sub (comb_a i))).
+    by rewrite /eqfun => i; rewrite !permM.
+  have hlp2 : (λ i, tnth a (a_sub_ (a_sub (comb_a i)))) =1 (λ i, tnth a (comb_a i)).
+    rewrite /eqfun => i.
+    by rewrite {2}(val_inj a_subp) tnth_map (val_inj a_subp_) tnth_map !tnth_ord_tuple.
+  by rewrite (eq_mktuple _ hlp) (eq_mktuple _ hlp2).
+
+  rewrite comb_bp /b'' /comb_b'.
+  move: b2. rewrite sub_b'p.
+  move: pebb; rewrite perm_sym => /tuple_permP[b_sub_ b_subp_]; rewrite b_subp_.
+  rewrite (subset_perm (b_sub)) !mktuple_mktuple (subset_perm comb_b) !mktuple_mktuple.
+  have hlp : (λ i, tnth b' ((comb_b * b_sub * sub_b')%g i)) =1 λ i, tnth b' (sub_b' (b_sub (comb_b i))).
+    by rewrite /eqfun => i; rewrite !permM.
+  have hlp2 : (λ i, tnth b (b_sub_ (b_sub (comb_b i)))) =1 (λ i, tnth b (comb_b i)).
+    rewrite /eqfun => i.
+    by rewrite {2}(val_inj b_subp) tnth_map (val_inj b_subp_) tnth_map !tnth_ord_tuple.
+  by rewrite (eq_mktuple _ hlp) (eq_mktuple _ hlp2).
+Qed.
 
 Inductive iterated_combination : line -> Prop :=
     present : ∀ a, a \in input -> iterated_combination a
   | combined : ∀ (a b c : line), iterated_combination a -> iterated_combination b ->
       combination_of a b c -> iterated_combination c.
 
+Definition color_of_set1 (s : {set color}) (prf : #|s| = 1) : color :=
+  thead (eq_rect _ (tuple_of^~ color) (enum_tuple s) _ prf).
+
+Lemma set1_color_of_set1 s p : set1 (@color_of_set1 s p) = s.
+  rewrite /color_of_set1.
+  pose p2 := p; move: p2 => /eqP/cards1P[x xe].
+  rewrite {3}xe.
+  rewrite /thead (tnth_nth x). destruct p. simpl.
+  by rewrite xe enum_set1.
+Qed.
+
+Definition coloring_of_singleton (l : line) (prf : ∀ i, #|tnth l i| = 1) :=
+  [tuple color_of_set1 (prf i) | i < Δ].
+
 Lemma coloring_in_singleton (l : line) : (∀ i : 'I_Δ, #|tnth l i| == 1) -> ∃ c, l = map_tuple set1 c.
-  move=> sz.
-  have hlp (s : {set color}) : #|s| == 1 -> ∃ x, s == [set x].
-    move=> /eqP.
-    give_up.
-  (*exists [tuple hlp (tnth l i) (sz i) | i < Δ].*)
-Admitted.
+  setoid_rewrite <- (rwP eqP); move=> sz.
+  exists (coloring_of_singleton sz).
+  apply/eqP; rewrite /coloring_of_singleton eqEtuple; apply/forallP => i.
+  by rewrite !tnth_map set1_color_of_set1 tnth_ord_tuple.
+Qed.
 
 Theorem combination_is_complete :
   ∀ line, valid line -> nonzero line -> ∃ line', iterated_combination line' ∧ line ⊆ line'.
