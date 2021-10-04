@@ -112,9 +112,33 @@ As the name suggests, Round Elimination takes a problem $P$ that can be solved i
 
 While $P$ assigns a color to each edge, $P'$ assigns a set of colors each edge. That set contains the colors that the edge could have. There is uncertainty because in $r-1$ rounds some information that affects the solution of $P$ is out of reach.
 
-The new active side consists of all lines that only generate configurations present in the old passive side, excluding lines that are subsets of other lines. The new passive side consists of all configurations made of new active sides' symbols that contain a configuration from the old active side.\cite{DA2020}
+The new active side consists of all lines that only generate configurations present in the old passive side, excluding lines that are subsets of other lines. The new passive side consists of all configurations made of the new active sides' symbols that contain a configuration from the old active side.\cite{DA2020}
 
 Written as a computer program, the above definition is a very concise and slow implementation of round elimination. To prove the correctness of a round elimination algorithm it suffices to prove that its output contains the same configurations as the reference implementation's output.
+
+\section{Minimization}
+
+Round Elimination produces a gigantic number of configurations. Especially the new passive side contains almost every possible configuration.
+
+We can discard all configurations containing symbols that only appear on one side, as using such a configuration in a solution is impossible. Luckily the active side can be pruned, cutting down the number of viable symbols even more. 
+
+\subsection{Line superiority}
+
+In the new passive configurations, any set can be replaced with its superset. After adding things to the sets it is still possible to choose the same elements from each set that form a configuration from the original active side.
+
+Thus, if two new active configurations A and B can be ordered so that $\forall i : A_i \subseteq B_i$, B can always be used instead of A; if there was some passive side that matched with A, there is a bigger one that will work with B as well. In this case, I'd say that B is \emph{superior} to A and A is \emph{inferior} to B.
+
+Note that this is not the same as the relation $\text{configurations}(A) \subseteq \text{configurations}(B)$. "a a bcde" allows strictly less colorings than "a abc ade" but they are incomparable in terms of superiority.
+
+\subsection{Combining lines}
+
+My new maximization algorithm mostly consists of combining lines. Two lines can be combined by pairing up their sets and taking the union of one pair and the intersection of the rest.
+
+The combination of two valid lines is a valid line. Proof: Let C be the combination of A and B. For each configuration c in C, Wlog. suppose the symbol that comes from the union is from A. The symbols that come from intersections are in both A and B. Thus all symbols in c are from A.
+
+For any valid line, a superior line can be built by combining input lines. Thus the maximal lines can be built this way. The proof of this is less trivial and will be discussed later.
+
+But even if the combining lines eventually produces the maximal lines, that doesn't mean it is an efficient way of finding them. However, it can be shown that if a line exists that isn't inferior to any of a set of lines then two of those lines can be combined to produce some line that isn't inferior to any of them. In other words, we can make progress by simply trying all combinations of two lines!
 
 \clearpage
 \thesisbibliography{}
