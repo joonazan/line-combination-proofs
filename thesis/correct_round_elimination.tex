@@ -124,9 +124,15 @@ We can discard all configurations containing symbols that only appear on one sid
 
 \subsection{Line superiority}
 
+If two configurations A and B can be ordered so that $\forall i : A_i \subseteq B_i$, I call B superior to A and A inferior to B.
+
+With this new definition we can see that the new passive side contains all configurations from the old active side wrapped in singleton sets and configurations superior to those, as
+
+Recall that one can must be able to pick an element from each set of a new passive configuration such that
+
 In the new passive configurations, any set can be replaced with its superset. After adding things to the sets it is still possible to choose the same elements from each set that form a configuration from the original active side.
 
-Thus, if two new active configurations A and B can be ordered so that $\forall i : A_i \subseteq B_i$, B can always be used instead of A; if there was some passive side that matched with A, there is a bigger one that will work with B as well. In this case, I'd say that B is \emph{superior} to A and A is \emph{inferior} to B.
+Thus, , B can always be used instead of A; if there was some passive side that matched with A, there is a bigger one that will work with B as well. In this case, I'd say that B is \emph{superior} to A and A is \emph{inferior} to B.
 
 Note that this is not the same as the relation $\text{configurations}(A) \subseteq \text{configurations}(B)$. "a a bcde" allows strictly less colorings than "a abc ade" but they are incomparable in terms of superiority.
 
@@ -139,6 +145,12 @@ The combination of two valid lines is a valid line. Proof: Let C be the combinat
 For any valid line, a superior line can be built by combining input lines. Thus the maximal lines can be built this way. The proof of this is less trivial and will be discussed later.
 
 But even if the combining lines eventually produces the maximal lines, that doesn't mean it is an efficient way of finding them. However, it can be shown that if a line exists that isn't inferior to any of a set of lines then two of those lines can be combined to produce some line that isn't inferior to any of them. In other words, we can make progress by simply trying all combinations of two lines!
+
+\section{Coq}
+
+\subsection{Classical vs Intuitionistic Logic}
+
+In Coq it is customary not to assume the law of excluded middle $\forall a : a \lor \lnot a$. This has little effect on the proof at hand, as it is about finite objects. For those a = b is equivalent to a == b and the latter is always true or false, as it can be computed.
 
 \clearpage
 \thesisbibliography{}
