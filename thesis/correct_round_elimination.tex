@@ -70,6 +70,8 @@ break characters as it is written into the metadata.
 
 \mysection{Symbols and abbreviations}
 
+\newcommand{\reline}[1]{\textbf{#1}}
+
 \subsection*{Symbols}
 
 \begin{tabular}{ll}
@@ -88,41 +90,50 @@ RE         & round elimination
 \thispagestyle{empty}
 
 \clearpage
-\section{Round Elimination}
+\section{Graph Theory}
 
-Brandt et al. introduced round elimination in 2019\cite{speedup}. Dennis Olivetti wrote an implementation of it called Round Eliminator\cite{RE}. Round Elimination has been used to prove bounds on time complexity for various problems in the LOCAL model\cite{tc1, tc2, tc3}.
-
-\subsection{Locally Checkable Labeling}
+\section{Locally Checkable Labeling}
 
 Round Elimination operates on an encoding of Locally Checkable Labeling (LCL) problems. LCL-problems are edge coloring problems on biregular trees. One of the bipartitions is called the active side and the other is the passive side. Each side has a set of multisets of colors. Each multiset describes one acceptable way to color the edges of that type of vertex. A solution to an LCL-problem is a coloring where every vertex's edges are colored in an acceptable way.
 
-In Round Eliminator, problems are represented as \emph{lines}. Lines are a kind of shorthand notation that compresses multiple multisets into one line. Each line is a multiset of sets and represents or \emph{generates} all the multisets obtained by choosing one color from each set.\cite{RE}
+% TODO expand
+
+\section{Round Elimination overview}
+
+Brandt et al. introduced round elimination in 2019\cite{speedup}. As the name suggests, it takes a problem $P_0$ that can be solved in $r$ rounds and outputs a new problem $P_1$ that is solvable in $r-1$ rounds. But what is $P_1$ relationship to $P_0$?
+
+While $P_0$ assigns a color to each edge, $P_1$ assigns a set of colors each edge. That set contains the colors that the edge could have in a solution to $P_0$. There is uncertainty because in $r-1$ rounds some information that affects the solution of $P_0$ is out of reach.
+
+\subsection{Lines}
+
+Dennis Olivetti wrote an implementation of round elimination called Round Eliminator\cite{RE}. Round Elimination has been used to prove bounds on time complexity for various problems in the LOCAL model\cite{tc1, tc2, tc3}.
+
+In Round Eliminator, problems are represented as \emph{lines}. Lines are a kind of shorthand notation that compresses multiple configurations into one line. Each line is a multiset of sets and represents or \emph{generates} all the configurations obtained by choosing one color from each set.\cite{RE}
+
+For example, the line \reline{A BC} generates the configurations \reline{A B} and \reline{A C}.
 
 \begin{figure}[h]
-\centering
-\begin{tcolorbox}[width=.2\textwidth, nobeforeafter, title=active side]
-A A A A \\
-B B B B \\
-C C C C
-\end{tcolorbox}
-\begin{tcolorbox}[width=.2\textwidth, nobeforeafter, title=passive side]
-A BC \\
-B C
-\end{tcolorbox}
-\caption{Three-coloring in Round Eliminator's shorthand}
+  \centering
+  \begin{tcolorbox}[width=.2\textwidth, nobeforeafter, title=active side]
+  A A A A \\
+  B B B B \\
+  C C C C
+  \end{tcolorbox}
+  \begin{tcolorbox}[width=.2\textwidth, nobeforeafter, title=passive side]
+  A BC \\
+  B C
+  \end{tcolorbox}
+  \caption{Three-coloring of a (4,2)-regular graph in Round Eliminator's shorthand}
 \end{figure}
 
-\subsection{Round Elimination}
+\subsection{Formal definition}
+The configurations of $P_1$ have the exact same shape as lines of $P_0$: multisets of nonempty sets of symbols from $P_0$'s alphabet, so it is convenient to talk about them as lines. In fact, in the section on efficient round elimination we'll see that the only hard part is normalizing $P_0$'s passive side.
 
-As the name suggests, Round Elimination takes a problem $P$ that can be solved in $r$ rounds and outputs a new problem $P'$ that is solvable in $r-1$ rounds. But what is $P'$ relationship to $P$?
+The definition of RE from Distributed Algorithms 2020\cite{DA2020} rephrased in terms of lines: $P_1$'s alphabet is the powerset of $P_0$'s alphabet minus the empty set. Its active side consists of all lines that only generate configurations present in $P_0$'s passive side. $P_1$'s passive side consists of all lines that generate at least one configuration from $P_0$'s active side.
 
-While $P$ assigns a color to each edge, $P'$ assigns a set of colors each edge. That set contains the colors that the edge could have. There is uncertainty because in $r-1$ rounds some information that affects the solution of $P$ is out of reach.
+\section{Stating Lemmas in Coq}
 
-The new active side consists of all lines that only generate configurations present in the old passive side, excluding lines that are subsets of other lines. The new passive side consists of all configurations made of the new active sides' symbols that contain a configuration from the old active side.\cite{DA2020}
-
-Written as a computer program, the above definition is a very concise and slow implementation of round elimination. To prove the correctness of a round elimination algorithm it suffices to prove that its output contains the same configurations as the reference implementation's output.
-
-\section{Minimization}
+\section{Efficient round elimination}
 
 Round Elimination produces a gigantic number of configurations. Especially the new passive side contains almost every possible configuration.
 
@@ -130,17 +141,19 @@ We can discard all configurations containing symbols that only appear on one sid
 
 \subsection{Line superiority}
 
-If two configurations A and B can be ordered so that $\forall i : A_i \subseteq B_i$, I call B superior to A and A inferior to B.
+If two lines A and B can be ordered so that $\forall i : A_i \subseteq B_i$, I call B superior to A and A inferior to B.
 
-With this new definition we can see that the new passive side contains all configurations from the old active side wrapped in singleton sets and configurations superior to those, as
+% TODO define singleton line
+Recall that all configurations of the new passive side must generate one configuration from the old active side. With this new definition we can see that the new passive side contains all configurations from the old active side as singleton lines and superior versions.
 
-Recall that one can must be able to pick an element from each set of a new passive configuration such that
-
+% TODO cite DA2020 for discarding inferior lines
 In the new passive configurations, any set can be replaced with its superset. After adding things to the sets it is still possible to choose the same elements from each set that form a configuration from the original active side.
 
-Thus, , B can always be used instead of A; if there was some passive side that matched with A, there is a bigger one that will work with B as well. In this case, I'd say that B is \emph{superior} to A and A is \emph{inferior} to B.
+Thus, a superior B can always be used instead of an active configuration A; if there is some passive configuration that matches with A, there is a bigger one that will work with B as well. It follows that one only needs to keep lines superior to all other lines when building a new active side. This normal form is called the maximal form.
 
-Note that this is not the same as the relation $\text{configurations}(A) \subseteq \text{configurations}(B)$. "a a bcde" allows strictly less colorings than "a abc ade" but they are incomparable in terms of superiority.
+Note that superiority is not the same relation as $\text{configurations}(A) \subseteq \text{configurations}(B)$. \reline{a abc ade} generates \reline{a b e}, while \reline{a a bcde} only generates configurations that are in \reline{a abc ade}. Yet they are incomparable in terms of superiority.
+
+% TODO explain proof that sets of configurations and lines are isomorphic
 
 \subsection{Combining lines}
 
@@ -148,11 +161,13 @@ My new maximization algorithm mostly consists of combining lines. Two lines can 
 
 The combination of two valid lines is a valid line. Proof: Let C be the combination of A and B. For each configuration c in C, Wlog. suppose the symbol that comes from the union is from A. The symbols that come from intersections are in both A and B. Thus all symbols in c are from A.
 
-For any valid line, a superior line can be built by combining input lines. Thus the maximal lines can be built this way. The proof of this is less trivial and will be discussed later.
+\subsection{Finding the maximal form}
+
+A line superior to any valid line can be built by combining input lines. Thus the maximal lines can be built this way. The proof of this is less trivial and will be discussed later.
 
 But even if the combining lines eventually produces the maximal lines, that doesn't mean it is an efficient way of finding them. However, it can be shown that if a line exists that isn't inferior to any of a set of lines then two of those lines can be combined to produce some line that isn't inferior to any of them. In other words, we can make progress by simply trying all combinations of two lines!
 
-\section{Coq}
+\section{Proving}
 
 \subsection{Classical vs Intuitionistic Logic}
 
