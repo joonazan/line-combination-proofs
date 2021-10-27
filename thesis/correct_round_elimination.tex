@@ -5,6 +5,12 @@
 \usepackage[most]{tcolorbox}
 \usepackage{amsfonts,amssymb,amsbsy,amsmath}
 
+\usepackage{minted}
+\usemintedstyle{friendly}
+% horrible hack to hide pygment's complaints about unicode
+\AtBeginEnvironment{minted}{\dontdofcolorbox}
+\def\dontdofcolorbox{\renewcommand\fcolorbox[4][]{##4}}
+
 \degreeprogram{Computer, Communication and Information Sciences}
 \major{Computer Science}
 \code{SCI3042}
