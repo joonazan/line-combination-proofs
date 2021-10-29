@@ -131,9 +131,28 @@ For example, the line \reline{A BC} generates the configurations \reline{A B} an
 \subsection{Formal definition}
 The configurations of $P_1$ have the exact same shape as lines of $P_0$: multisets of nonempty sets of symbols from $P_0$'s alphabet, so it is convenient to talk about them as lines. In fact, in the section on efficient round elimination we'll see that the only hard part is normalizing $P_0$'s passive side.
 
-The definition of RE from Distributed Algorithms 2020\cite{DA2020} rephrased in terms of lines: $P_1$'s alphabet is the powerset of $P_0$'s alphabet minus the empty set. Its active side consists of all lines that only generate configurations present in $P_0$'s passive side. $P_1$'s passive side consists of all lines that generate at least one configuration from $P_0$'s active side.
+The definition of RE from Distributed Algorithms 2020\cite{DA2020} rephrased in terms of lines:
+\begin{itemize}
+  \item $P_1$'s alphabet is the powerset of $P_0$'s alphabet minus the empty set.
+  \item Its active side consists of all lines that only generate configurations present in $P_0$'s passive side.
+  \item $P_1$'s passive side consists of all lines that generate at least one configuration from $P_0$'s active side.
+\end{itemize}
 
-\section{Stating Lemmas in Coq}
+\section{Coq Primer}
+
+Before discussing my novel round elimination algorithm, I need to explain the basics of Coq because I will show the lemmas concerning its correctness as written in Coq's Vernacular. I will also give informal proofs. The actual proofs involve many boring details, which this paper does not cover. However, the Proving section will show examples of the most important proof techniques used. The full source code can be found in the project's repository\cite{source_code}.
+
+\begin{figure}[h]
+\begin{minted}{Coq}
+Lemma tnth_zip n S T (a : n.-tuple T) (b : n.-tuple S) i :
+  tnth (zip_tuple a b) i = (tnth a i, tnth b i).
+\end{minted}
+\caption{A very simple utility lemma which states that zipping two arrays of the same length and taking the $i$th item produces a tuple with the $i$th item of the first array and the $i$th item of the second list.}
+\end{figure}
+
+Lemmas in Coq are types. Constructing any value of type T proves the lemma T.
+
+You are allowed to use values in types in order to make talking about computation convenient. This is called dependent types. Coq solves this with cumulative universes.
 
 \section{Efficient round elimination}
 
