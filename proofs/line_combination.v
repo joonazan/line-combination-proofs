@@ -488,4 +488,95 @@ Proof.
   by rewrite subset_refl.
 Qed.
 
+Definition all_combinations (a b : line) := [:: a; b]. (*TODO*)
+
+Definition maximize_step res new :=
+  if all (λ x, new ⊈ x) res then
+    ( new :: filter (λ x, x ⊈ new) res
+    , flatten [seq all_combinations x new | x <- res]
+    )
+  else
+    (res, [::]).
+
+Definition maximality_le (a b : seq line) :=
+  [forall x in a, [exists y in b, x ⊆ y]].
+
+Definition less_maximal a b := maximality_le a b && ~~ maximality_le b a.
+
+Require Import Program.
+
+Definition maximize_progress (a b : seq line * seq line) :=
+  let: (res, todo) := a in
+  let: (res2, todo2) := b in less_maximal res2 res ∨ res = res2 ∧ length todo < length todo2.
+
+Program Fixpoint maximize' res todo {measure (res, todo) maximize_progress} :=
+  match todo with
+  | h :: t => let: (res', jobs) := maximize_step res h in maximize' res' (jobs ++ t)
+  | [::] => res
+  end.
+
+Next Obligation.
+move: Heq_anonymous; rewrite /maximize_step.
+case E : (all (λ x : line, h ⊈ x) res);
+  last by move=> []; elim => a; right; rewrite a.
+move=> [a _]; left; rewrite {}a.
+rewrite /less_maximal; split_and; rewrite /maximality_le; last first.
+  apply/forall_inPn; exists h.
+    by rewrite mem_head.
+  by apply/exists_inPn => x /allP xin; apply xin in E.
+apply/forall_inP => x xin.
+apply/exists_inP.
+case E2 : (x ⊆ h).
+  by exists h => //; rewrite mem_head.
+exists x.
+  by rewrite inE; apply/orP; right; rewrite mem_filter E2.
+by apply subset_refl.
+Qed.
+
+Definition missing_from (lines : seq line) :=
+  #|[set x | [forall y in lines, x ⊈ y]]|.
+
+Lemma less_maximal_missing_from :
+  ∀ a b, less_maximal a b -> missing_from b < missing_from a.
+Proof.
+  move=> a b /andP[le nle].
+  apply proper_card; rewrite properE.
+  split_and.
+    apply/subsetPn; case => /= x;
+    rewrite !in_set => x_notin_b /forall_inPn[y y_in_a] /negPn.
+    move: le => /forall_inP. move/ (_ y y_in_a) => /exists_inP[y' y'b yy xy].
+    move: (subset_trans xy yy) => tru. move: x_notin_b => /forall_inP. move/ (_ y' y'b).
+    by rewrite tru.
+  apply/subsetPn; move: nle => /forall_inPn[bad bad_in_b] /exists_inPn bad_a.
+  exists bad; rewrite in_set.
+    by apply/forall_inP.
+  apply/forall_inPn. exists bad => //.
+  by apply/negPn; apply subset_refl.
+Qed.
+
+Lemma maximize_progress_wf' : ∀ n m res todo,
+  missing_from res < n -> length todo < m -> Acc maximize_progress (res, todo).
+Proof.
+  elim; first done; move=> n IHn.
+  elim; first done; move=> m IHm res todo mf len.
+  constructor => y. destruct y.
+  move=> []; last first.
+    move=> [eq] lens. rewrite {}eq. apply IHm => //. by move: len lens; sslia.
+  move=> /less_maximal_missing_from mf2.
+  apply (IHn (length l0).+1) => //.
+  by move: mf mf2; sslia.
+Qed.
+
+Next Obligation.
+apply measure_wf; red => a. destruct a.
+eauto using maximize_progress_wf'.
+Qed.
+
+Definition maximize := maximize' [::] input.
+
+Definition maximal x := valid x ∧ ∀ y, valid y -> ~ x ⊂ y.
+
+Theorem maximize_works : ∀ x, x \in maximize <-> maximal x.
+Abort.
+
 End Lines.
