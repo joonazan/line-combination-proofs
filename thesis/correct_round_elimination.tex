@@ -5,6 +5,8 @@
 \usepackage[most]{tcolorbox}
 \usepackage{amsfonts,amssymb,amsbsy,amsmath}
 
+\usepackage{tkz-graph}
+
 \usepackage{minted}
 \usemintedstyle{friendly}
 % horrible hack to hide pygment's complaints about unicode
@@ -72,6 +74,9 @@ break characters as it is written into the metadata.
 
 \newcommand{\reline}[1]{\textbf{#1}}
 
+\tikzstyle{active} = [draw, thick, circle, fill=black, text=white, minimum size=2em]
+\tikzstyle{passive} = [draw, thick, circle, fill=white, minimum size=2em]
+
 \subsection*{Symbols}
 
 \begin{tabular}{ll}
@@ -100,11 +105,11 @@ Round Elimination operates on an encoding of Locally Checkable Labeling (LCL) pr
 
 % TODO expand
 
-\section{Round Elimination overview}
+\section{Round Elimination}
 
-Brandt et al. introduced round elimination in 2019\cite{speedup}. As the name suggests, it takes a problem $P_0$ that can be solved in $r$ rounds and outputs a new problem $P_1$ that is solvable in $r-1$ rounds. But what is $P_1$ relationship to $P_0$?
+Brandt et al. introduced round elimination in 2019\cite{speedup}. As the name suggests, it takes a problem $\Pi_0$ that can be solved in $r$ rounds and outputs a new problem $\Pi_1$ that is solvable in $r-1$ rounds. But what is $\Pi_1$ relationship to $\Pi_0$?
 
-While $P_0$ assigns a color to each edge, $P_1$ assigns a set of colors each edge. That set contains the colors that the edge could have in a solution to $P_0$. There is uncertainty because in $r-1$ rounds some information that affects the solution of $P_0$ is out of reach.
+While $\Pi_0$ assigns a color to each edge, $\Pi_1$ assigns a set of colors each edge. That set contains the colors that the edge could have in a solution to $\Pi_0$. There is uncertainty because in $r-1$ rounds some information that affects the solution of $\Pi_0$ is out of reach.
 
 \subsection{Lines}
 
@@ -129,14 +134,78 @@ For example, the line \reline{A BC} generates the configurations \reline{A B} an
 \end{figure}
 
 \subsection{Formal definition}
-The configurations of $P_1$ have the exact same shape as lines of $P_0$: multisets of nonempty sets of symbols from $P_0$'s alphabet, so it is convenient to talk about them as lines. In fact, in the section on efficient round elimination we'll see that the only hard part is normalizing $P_0$'s passive side.
+The configurations of $\Pi_1$ have the exact same shape as lines of $\Pi_0$: multisets of nonempty sets of symbols from $\Pi_0$'s alphabet, so it is convenient to talk about them as lines. I will call $\Pi_0$'s alphabet, active side and passive side $\Sigma_0$, $A_0$ and $P_{0}$ respectively and use the same notation to refer to $\Pi_{1}$'s components
 
 The definition of RE from Distributed Algorithms 2020\cite{DA2020} rephrased in terms of lines:
 \begin{itemize}
-  \item $P_1$'s alphabet is the powerset of $P_0$'s alphabet minus the empty set.
-  \item Its active side consists of all lines that only generate configurations present in $P_0$'s passive side.
-  \item $P_1$'s passive side consists of all lines that generate at least one configuration from $P_0$'s active side.
+  \item $\Sigma_1$ is the powerset of $\Sigma_0$ minus the empty set.
+  \item $A_{1}$ consists of all lines that only generate configurations present in $P_{0}$.
+  \item $P_1$ consists of all lines that generate at least one configuration from $A_0$.
 \end{itemize}
+
+\subsection{Optimizing output size}
+
+Round Elimination produces a gigantic number of configurations. Especially the new passive side contains almost every possible configuration. For example, suppose $\Sigma_{0} = {a, b, c}$ and $A_0$ has a configuration \reline{a~b}. Now $P_{1}$ contains \reline{a~b} but also \reline{ab~b}, \reline{ac~b}, \reline{abc~b}, \reline{a~ab}, \reline{a~bc}, \reline{a~abc}, \reline{ab~ab}, \reline{ab~bc}, \reline{ab~abc}, \reline{ac~ab}, \reline{ac~bc}, \reline{ac~abc}, \reline{abc~ab}, \reline{abc~bc} and \reline{abc~abc}. If we were to use this directly, the problem size would grow at an alarming rate with successive applications of round elimination, so it makes sense to optimize output size over round elimination speed.
+
+One simple optimization is to discard all active configurations containing symbols that don't appear in any passive configurations and vice versa, as using them is impossible. But that isn't the only thing that can be done.
+
+\subsubsection{Maximal form}
+
+Suppose the picture below is part of a solution to $\Pi_{1}$. One can see that \reline{x~a} and \reline{af~y} are in $A_{1}$ and \reline{a~af} is in $P_{1}$. If \reline{x~ac} is in $A_{1}$, there is also a solution where node $n$ uses it instead of \reline{x~a}.
+
+\begin{tikzpicture}[scale=2]
+  \draw [thick, dashed] (0.3,0) -- (1,0) node[midway, above]{\{x\}};
+  \draw [thick] (1,0) node[active]{n} -- (2, 0) node[midway, above]{\{a\}};
+  \draw [thick] (2,0) node[passive]{} -- (3, 0) node[active]{} node[midway, above]{\{a, f\}};
+  \draw [thick, dashed] (3,0) -- (3.7,0) node[midway, above]{\{y\}};
+\end{tikzpicture}
+
+In that alternative solution \reline{ac~af} has to be in $P_{1}$. \reline{a~af} is in $P_{1}$, so it generates some configuration from $A_{0}$. \reline{ac~af} generates strictly more configurations, so it is in $P_{1}$, too.
+
+As every solution using \reline{x~a} can use \reline{x~ac} instead, \reline{x~a} can be omitted. In general, if two lines A and B can be ordered so that $\forall i : A_i \subseteq B_i$, A can be omitted.\cite{DA2020} For any A and B satisfying that criterion I call B superior to A and A inferior to B.
+
+\tikzset{
+  EdgeStyle/.append style = {->}
+}
+\begin{figure}[h]
+  \centering
+  \begin{tikzpicture}
+    \SetGraphUnit{2}
+    \Vertex{a abc}
+    \SO(a abc){a ac}
+    \EA(a ac){a bc}
+    \WE(a ac){a ab}
+    \Edge(a abc)(a ac)
+    \Edge(a abc)(a bc)
+    \Edge(a abc)(a ab)
+    \SO(a ac){a c}
+    \EA(a c){a b}
+    \WE(a c){a a}
+    \Edge(a bc)(a b)
+    \Edge(a bc)(a c)
+    \Edge(a ac)(a c)
+    \Edge(a ac)(a a)
+    \Edge(a ab)(a a)
+    \Edge(a ab)(a b)
+  \end{tikzpicture}
+  \caption{Graph of lines inferior to \reline{a~abc}.}
+\end{figure}
+
+Note that superiority is not the same relation as $\text{configurations}(A) \subseteq \text{configurations}(B)$. \reline{a abc ade} generates \reline{a b e}, while \reline{a a bcde} only generates configurations that are in \reline{a abc ade}. Yet they are incomparable in terms of superiority.
+
+The subset of $A_{1}$ inferior to none is called the maximal form of $P_{0}$. Or one could say that the maximal form of $S$ is the Pareto front of \emph{valid} lines with respect to superiority, where valid means that a line only generates configurations that $S$ generates.
+
+Finding the maximal form of $P_{0}$ is the most expensive part of the original Round Eliminator's algorithm. Maximization via line combination is orders of magnitude faster in practice and is resistant to some pathological inputs but it remains the most expensive part. % TODO add to abstract maybe?
+
+% TODO explain proof that sets of configurations and lines are isomorphic
+
+\subsection{Putting it all together}
+
+To perform round elimination, one first finds the maximal form of the passive side. That becomes the new active side.
+
+The new passive side is then built % TODO how exactly
+
+Finally, to make the representation more compact, the symbols in the new alphabet are converted from subsets of the old alphabet to ordinals simply by enumerating the symbols.
 
 \section{Coq Primer}
 
@@ -154,27 +223,8 @@ Lemmas in Coq are types. Constructing any value of type T proves the lemma T.
 
 You are allowed to use values in types in order to make talking about computation convenient. This is called dependent types. Coq solves this with cumulative universes.
 
-\section{Efficient round elimination}
 
-Round Elimination produces a gigantic number of configurations. Especially the new passive side contains almost every possible configuration.
-
-We can discard all configurations containing symbols that only appear on one side, as using such a configuration in a solution is impossible. Luckily the active side can be pruned, cutting down the number of viable symbols even more. 
-
-\subsection{Line superiority}
-
-If two lines A and B can be ordered so that $\forall i : A_i \subseteq B_i$, I call B superior to A and A inferior to B.
-
-% TODO define singleton line
-Recall that all configurations of the new passive side must generate one configuration from the old active side. With this new definition we can see that the new passive side contains all configurations from the old active side as singleton lines and superior versions.
-
-% TODO cite DA2020 for discarding inferior lines
-In the new passive configurations, any set can be replaced with its superset. After adding things to the sets it is still possible to choose the same elements from each set that form a configuration from the original active side.
-
-Thus, a superior B can always be used instead of an active configuration A; if there is some passive configuration that matches with A, there is a bigger one that will work with B as well. It follows that one only needs to keep lines superior to all other lines when building a new active side. This normal form is called the maximal form.
-
-Note that superiority is not the same relation as $\text{configurations}(A) \subseteq \text{configurations}(B)$. \reline{a abc ade} generates \reline{a b e}, while \reline{a a bcde} only generates configurations that are in \reline{a abc ade}. Yet they are incomparable in terms of superiority.
-
-% TODO explain proof that sets of configurations and lines are isomorphic
+\section{Maximization via line combination}
 
 \subsection{Combining lines}
 
