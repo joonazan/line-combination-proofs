@@ -162,7 +162,7 @@ Suppose the picture below is part of a solution to $\Pi_{1}$. One can see that \
 
 In that alternative solution \reline{ac~af} has to be in $P_{1}$. \reline{a~af} is in $P_{1}$, so it generates some configuration from $A_{0}$. \reline{ac~af} generates strictly more configurations, so it is in $P_{1}$, too.
 
-As every solution using \reline{x~a} can use \reline{x~ac} instead, \reline{x~a} can be omitted. In general, if two lines A and B can be ordered so that $\forall i : A_i \subseteq B_i$, A can be omitted.\cite{DA2020} For any A and B satisfying that criterion I call B superior to A and A inferior to B.
+As every solution using \reline{x~a} can use \reline{x~ac} instead, \reline{x~a} can be omitted. In general, if two lines A and B can be ordered so that $\forall i : A_i \subseteq B_i$, A can be omitted.\cite{DA2020} For any A and B satisfying that criterion I say that B dominates A and A is dominated by B.
 
 \tikzset{
   EdgeStyle/.append style = {->}
@@ -188,12 +188,12 @@ As every solution using \reline{x~a} can use \reline{x~ac} instead, \reline{x~a}
     \Edge(a ab)(a a)
     \Edge(a ab)(a b)
   \end{tikzpicture}
-  \caption{Graph of lines inferior to \reline{a~abc}.}
+  \caption{Graph of lines dominated by \reline{a~abc}.}
 \end{figure}
 
-Note that superiority is not the same relation as $\text{configurations}(A) \subseteq \text{configurations}(B)$. \reline{a abc ade} generates \reline{a b e}, while \reline{a a bcde} only generates configurations that are in \reline{a abc ade}. Yet they are incomparable in terms of superiority.
+Note that domination is not the same relation as $\text{configurations}(A) \subseteq \text{configurations}(B)$. \reline{a abc ade} generates \reline{a b e}, while \reline{a a bcde} only generates configurations that are in \reline{a abc ade}. Yet they are incomparable in terms of domination.
 
-The subset of $A_{1}$ inferior to none is called the maximal form of $P_{0}$. Or one could say that the maximal form of $S$ is the Pareto front of \emph{valid} lines with respect to superiority, where valid means that a line only generates configurations that $S$ generates.
+The subset of $A_{1}$ dominated by none is called the maximal form of $P_{0}$. Or one could say that the maximal form of $S$ is the Pareto front of \emph{valid} lines with respect to domination, where valid means that a line only generates configurations that $S$ generates.
 
 This work's main contribution is a new algorithm for finding the maximal form of $P_{0}$ by combining lines and its proof.
 
@@ -236,9 +236,9 @@ The combination of two valid lines is a valid line. Proof: Let C be the combinat
 
 \subsection{Finding the maximal form}
 
-A line superior to any valid line can be built by combining input lines. Thus the maximal lines can be built this way. The proof of this is less trivial and will be discussed later.
+Any valid line can either be built by combining input lines or a line dominating it can be built. Thus the maximal lines can be built this way. The proof of this is less trivial and will be discussed later.
 
-But even if the combining lines eventually produces the maximal lines, that doesn't mean it is an efficient way of finding them. However, it can be shown that if a line exists that isn't inferior to any of a set of lines then two of those lines can be combined to produce some line that isn't inferior to any of them. In other words, we can make progress by simply trying all combinations of two lines!
+But even if combining lines eventually produces the maximal lines, that doesn't mean it is an efficient way of finding them. However, it can be shown that if combining a set of lines produces a line that isn't dominated by it, then two of the lines can be combined to produce some line that isn't dominated by any of them. In other words, we can make progress by simply trying all combinations of two lines!
 
 \section{Performance}
 
