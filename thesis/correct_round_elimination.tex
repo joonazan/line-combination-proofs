@@ -6,6 +6,9 @@
 \usepackage{amsfonts,amssymb,amsbsy,amsmath}
 
 \usepackage{tkz-graph}
+\usepackage{tikz}
+\usetikzlibrary{calc}
+\usetikzlibrary{arrows.meta}
 
 \usepackage{minted}
 \usemintedstyle{friendly}
@@ -74,8 +77,8 @@ break characters as it is written into the metadata.
 
 \newcommand{\reline}[1]{\textbf{#1}}
 
-\tikzstyle{active} = [draw, thick, circle, fill=black, text=white, minimum size=2em]
-\tikzstyle{passive} = [draw, thick, circle, fill=white, minimum size=2em]
+\tikzstyle{active} = [draw, thick, circle, fill=white, minimum size=1.5em]
+\tikzstyle{passive} = [draw, thick, circle, fill=darkgray, text=white, minimum size=1.5em]
 
 \subsection*{Symbols}
 
@@ -101,13 +104,66 @@ RE         & round elimination
 
 \section{Locally Checkable Labeling}
 
-Round Elimination operates on an encoding of Locally Checkable Labeling (LCL) problems. LCL-problems are edge coloring problems on biregular trees. One of the bipartitions is called the active side and the other is the passive side. Each side has a set of multisets of colors. Each multiset describes one acceptable way to color the edges of that type of vertex. A solution to an LCL-problem is a coloring where every vertex's edges are colored in an acceptable way.
+Locally Checkable Labeling (LCL) is a family of graph coloring problems. In them, one has to assign colors to edges or vertices, satisfying some locally checkable condition.
 
-% TODO expand
+Locally checkable means that a solution can be checked by checking fixed size neighborhoods. For example, to verify that vertices are properly colored, one just has to look at the neighbors of each vertex and check that no neighbor has the same color.
+
+\subsection{Encoding for Round Elimination}
+
+Round Elimination operates on a specific kind of edge coloring LCLs. They take place in \emph{biregular} graphs; which means graphs with properly two-colored vertices where the degree of each class of vertices is constant. One of the classes is called the active side and the other is the passive side.
+
+Each side's vertices have their own rule that governs the combinations of colors neighboring edges are allowed to have. The rules can be written down by listing all allowed color combinations. Each allowed color combination is called a \emph{configuration}.
+
+Most problems don't naturally give rise to this kind of LCL but have to be converted into it.
+
+For example, take sinkless orientation. In that problem a direction must to be assigned to each edge, such that no vertex has only incoming edges.
+
+\begin{figure}[h]
+\centering
+\begin{tikzpicture}[line width=1pt]
+  \node [active] at (5, 0) (center') {};
+  \node [active] at (0, 0) (center) {};
+  \foreach \a/\cl/\el/\arrow in {0/O/I/-latex, 120/O/I/-latex, 240/I/O/latex-}
+  {
+    \node [active] at (\a+18:1.4) (A){};
+    \draw [\arrow] (center) -- (A)
+    coordinate[near start] (tail)
+    coordinate[near end] (head);
+
+    \node [passive] at ($ (\a+18:1.5) + (center') $) (P) {};
+    \node [active] at ($ (\a+18:3) + (center') $) (A') {};
+    \draw
+    (center') -- (P) node[midway, fill=white] (CtoP) {\cl}
+    (P) -- (A') node[midway, fill=white] (PtoA) {\el};
+    \draw [dotted] \foreach \da in {-60, 60} {
+      (A) -- ($ (A) + (\a+18+\da:0.8) $)
+      (A') -- ($ (A') + (\a+18+\da:1) $)
+    };
+  };
+  \draw [dashed, stealth-stealth, shorten <=0.6ex] (tail) to[bend left=10] (CtoP);
+  \draw [dashed, stealth-stealth, shorten <=0.5ex] (head) to[bend left=10] (PtoA);
+\end{tikzpicture}
+\caption{Correspondence between solutions in round elimination graph and original graph}
+\end{figure}
+
+Each vertex in the original graph corresponds to an active vertex in the new one and edges correspond to passive vertices. We can describe the directions of edges by coloring them with I (for incoming) on O (for outgoing). The active side's rule follows from the problem description: all edges must not be incoming. The passive side's rule ensures that each edge is incoming on one end and outgoing on the other; otherwise there could be edges with an arrowhead on both sides.
+
+\subsection{The LOCAL model}
+
+This paper (and Round Elimination) is specifically about solving LCL-problems in the LOCAL model.
+
+In the LOCAL model, each vertex runs the same program and must produce its own part of the solution. Each vertex can see its own unique id.
+
+First, vertices get to compute as much as they need to. Then they send a message to each of their neighbors. All vertices receive the messages simultaneously. This process repeats until all vertices have chosen their output.
+
+A problem for which there exists an algoritm that gives the correct output after $r$ rounds is called $r$-round solvable.
+
+It can be shown that an $r$-round solvable problem is a problem where a correct output can be computed from the neighborhood of vertices up to $r$ edges away.
+
 
 \section{Round Elimination}
 
-Brandt et al. introduced round elimination in 2019\cite{speedup}. As the name suggests, it takes a problem $\Pi_0$ that can be solved in $r$ rounds and outputs a new problem $\Pi_1$ that is solvable in $r-1$ rounds. But what is $\Pi_1$ relationship to $\Pi_0$?
+Brandt et al.\ introduced round elimination in 2019\cite{speedup}. As the name suggests, it takes a problem $\Pi_0$ that can be solved in $r$ rounds and outputs a new problem $\Pi_1$ that is solvable in $r-1$ rounds. But what is $\Pi_1$ relationship to $\Pi_0$?
 
 While $\Pi_0$ assigns a color to each edge, $\Pi_1$ assigns a set of colors each edge. That set contains the colors that the edge could have in a solution to $\Pi_0$. There is uncertainty because in $r-1$ rounds some information that affects the solution of $\Pi_0$ is out of reach.
 
@@ -156,8 +212,8 @@ Suppose the picture below is part of a solution to $\Pi_{1}$. One can see that \
 \begin{tikzpicture}[scale=2]
   \draw [thick, dashed] (0.3,0) -- (1,0) node[midway, above]{\{x\}};
   \draw [thick] (1,0) node[active]{n} -- (2, 0) node[midway, above]{\{a\}};
-  \draw [thick] (2,0) node[passive]{} -- (3, 0) node[active]{} node[midway, above]{\{a, f\}};
   \draw [thick, dashed] (3,0) -- (3.7,0) node[midway, above]{\{y\}};
+  \draw [thick] (2,0) node[passive]{} -- (3, 0) node[active]{} node[midway, above]{\{a, f\}};
 \end{tikzpicture}
 
 In that alternative solution \reline{ac~af} has to be in $P_{1}$. \reline{a~af} is in $P_{1}$, so it generates some configuration from $A_{0}$. \reline{ac~af} generates strictly more configurations, so it is in $P_{1}$, too.
