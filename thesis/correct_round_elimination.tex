@@ -1,10 +1,11 @@
 \documentclass[english, 12pt, a4paper, sci, a-1b, online]{aaltothesis}
-\usepackage{unicode-math}
 
 \usepackage[numbers]{natbib}
 \usepackage{graphicx}
 \usepackage[most]{tcolorbox}
-\usepackage{amsfonts,amsbsy,amsmath}
+\usepackage{amsmath}
+\usepackage{unicode-math}
+\setmathfont{texgyrepagella-math.otf}
 
 \usepackage{tkz-graph}
 \usepackage{tikz}
@@ -13,6 +14,8 @@
 
 \usepackage{minted}
 \usemintedstyle{friendly}
+\setmonofont{DejaVu Sans Mono}
+\setminted{fontsize=\footnotesize}
 % horrible hack to hide pygment's complaints about unicode
 \AtBeginEnvironment{minted}{\dontdofcolorbox}
 \def\dontdofcolorbox{\renewcommand\fcolorbox[4][]{##4}}
@@ -268,13 +271,13 @@ Finally, to make the representation more compact, the symbols in the new alphabe
 
 Before discussing my novel round elimination algorithm, I need to explain the basics of Coq because I will show the lemmas concerning its correctness as written in Coq's Vernacular. I will also give informal proofs. The actual proofs involve many boring details, which this paper does not cover. However, the Proving section will show examples of the most important proof techniques used. The full source code can be found in the project's repository\cite{source_code}.
 
-\begin{figure}[h]
+\begin{listing}[h]
 \begin{minted}{Coq}
 Lemma tnth_zip n S T (a : n.-tuple T) (b : n.-tuple S) i :
   tnth (zip_tuple a b) i = (tnth a i, tnth b i).
 \end{minted}
 \caption{A very simple utility lemma which states that zipping two arrays of the same length and taking the $i$th item produces a tuple with the $i$th item of the first array and the $i$th item of the second list.}
-\end{figure}
+\end{listing}
 
 Lemmas in Coq are types. Constructing any value of type T proves the lemma T.
 
@@ -283,13 +286,87 @@ You are allowed to use values in types in order to make talking about computatio
 
 \section{Maximization via line combination}
 
-In this section I'll present a maximization algorithm based on combining lines and an informal correctness proof.
+In this section I'll present a maximization algorithm based on combining lines and the lemmas that I used to prove its correctness. I'll show the most important lemmas as they are written in Coq but present the proofs informally. The Proving section contains information on how the mechanized proofs were developed.
+
+\newcommand\icoq[1]{\mintinline{Coq}{#1}}
+
+\begin{listing}[h]
+\begin{minted}{Coq}
+Variable alphabet_size: nat.
+Definition color := 'I_alphabet_size.
+Variable one_minus_delta: nat.
+Definition Δ := one_minus_delta.+1.
+
+Definition nline n := n.-tuple {set color}.
+Notation "n .-line" := (nline n) (at level 30, no associativity).
+Definition line := Δ.-line.
+Definition configuration := Δ.-tuple color.
+\end{minted}
+\caption{Definition of lines and configurations used throughout the proof.}
+\end{listing}
+
+Variables like \icoq{alphabet_size} automatically become arguments of any function that uses them in Coq. They are very convenient here, as I'd otherwise have to explicitly make many lemmas depend on the alphabet size and $\Delta$.
+
+I use \icoq{one_minus_delta} to ensure that $\Delta$ is positive. That way I don't need to deal with the uninteresting case where vertices aren't connected at all. I could instead add \icoq{Variable nonzero_delta := Δ <> 0} but then I'd have to explicitly use it every time to eliminate the zero case.
+
+\begin{listing}[h]
+\begin{minted}{Coq}
+Definition contains_unpermuted (cl: configuration) (l: line) : bool :=
+  all2 (λ c (s : {set color}), c \in s) cl l.
+
+Definition contains (cl : configuration) (line : line) : bool :=
+  [exists (p : configuration | perm_eq p cl), contains_unpermuted p line].
+
+Notation "a ∈ L" := (contains a L) (at level 50, no associativity).
+\end{minted}
+\caption{Lines are represented as tuples, so their lack of order is simulated, typically by operating on some permutation instead of the actual line.}
+\end{listing}
 
 \subsection{Combining lines}
 
 My new maximization algorithm mostly consists of combining lines. Two lines can be combined by pairing up their sets and taking the union of one pair and the intersection of the rest.
 
-The combination of two valid lines is a valid line. Proof: Let C be the combination of A and B. For each configuration c in C, Wlog. suppose the symbol that comes from the union is from A. The symbols that come from intersections are in both A and B. Thus all symbols in c are from A.
+\begin{minted}{Coq}
+Definition combine m (n := m.+1) (a : n.-line) (b : n.-line) : n.-line :=
+  [tuple of (thead a) :|: (thead b)
+  :: map (λ ab, ab.1 :&: ab.2) (zip (behead a) (behead b))
+  ].
+
+Definition combination_of (a b c : line) :=
+  ∃ (a' b' c' : line),
+    perm_eq a' a ∧ perm_eq b' b ∧ perm_eq c' c ∧ combine a' b' = c'.
+
+Theorem combination_is_sound (a b c : line) col :
+  combination_of a b c -> col ∈ c -> col ∈ a ∨ col ∈ b.
+\end{minted}
+
+Proof: For each configuration \icoq{col} in \icoq{c}, wlog. suppose the symbol that comes from the union is from \icoq{a}. The symbols that come from intersections are in both \icoq{a} and \icoq{b}. Thus all symbols in \icoq{c} are from \icoq{a}.
+
+\subsection{Domination relation}
+
+\begin{minted}{Coq}
+Definition dominates {n} (b a : n.-line) :=
+  [exists a' : n.-line, exists b' : n.-line, perm_eq a a' && perm_eq b b' &&
+    all2 (λ x y : {set color}, x \subset y) a' b'].
+Notation "a ⊆ b" := (dominates b a) (at level 50, no associativity).
+Notation "a ⊈ b" := (~~ dominates b a) (at level 50, no associativity).
+Definition strictly_dominates {n} (b a : n.-line) := (a ⊆ b) && (b ⊈ a).
+Notation "a ⊂ b" := (strictly_dominates b a) (at level 50, no associativity).
+\end{minted}
+
+The strict version of the domination relation is well-founded.
+
+\begin{minted}{Coq}
+Definition strictly_dominated (a b : line) := strictly_dominates b a.
+
+Lemma strictly_dominated_wf : well_founded strictly_dominated.
+\end{minted}
+
+Proof: To show well-foundedness, one has to show that one always arrives a a smallest element by repeatedly picking any smaller element.
+
+Define the weight of a line as the sum of its sets' cardinalities. Obviously no line can have a negative weight. If a line $a$ strictly dominates line $b$, then the weight of $b$ is smaller than the weight of $a$, since all of $b$'s sets are subsets of $a$'s and one is a strict subset.
+
+There cannot be an infinite descending chain, as weight decreases while descending and weight is a natural number. QED.
 
 \subsection{Finding the maximal form}
 
@@ -325,7 +402,7 @@ The new algorithm's runtime doesn't depend on the size of the alphabet.
 
 is approximately $O(n^{3}\Delta!)$.
 
-The earlier algorithm computed all permutations of the maximal lines making the factorial unavoidable. It can be avoided in the new algorithm by using a smarter way to generate all combinations of two lines than presented here. 
+The earlier algorithm computed all permutations of the maximal lines making the factorial unavoidable. It can be avoided in the new algorithm by using a smarter way to generate all combinations of two lines than presented here.
 
 
 \section{Proving}
