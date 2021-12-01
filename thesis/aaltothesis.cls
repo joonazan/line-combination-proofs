@@ -104,19 +104,6 @@
   \togglefalse{ARTS}\togglefalse{BIZ}\togglefalse{CHEM}%
   \togglefalse{ELEC}\togglefalse{ENG}\toggletrue{SCI}%
 }%
-%% Font encoding support for iso-latin-1, utf-8 and ansinew (MiKTeX):
-%% LC 26.9.2013
-\newtoggle{UTF}%
-\DeclareOption{latin1}{%
-  \PassOptionsToPackage{latin1}{inputenc}%
-}%
-\DeclareOption{utf8}{%
-  \PassOptionsToPackage{utf8}{inputenc}%
-  \toggletrue{UTF}%
-}%
-\DeclareOption{ansinew}{%
-  \PassOptionsToPackage{ansinew}{inputenc}%
-}%
 %
 \newtoggle{PDFA}%
 \newtoggle{writexmpdatafile}
@@ -144,7 +131,7 @@
 \DeclareOption*{%
   \PassOptionsToClass{\CurrentOption}{article}%
 }%
-\ExecuteOptions{english, utf8, online, a4paper}% Default package options
+\ExecuteOptions{english, online, a4paper}% Default package options
 \ProcessOptions\relax%
 %
 \LoadClass{article}%
@@ -153,7 +140,7 @@
   \RequirePackage[latxmp]{pdfx}[2017/05/18]% Produce PDF/A 1b, 2b and 3b compliant pdf
   \RequirePackage{newfile}% Provides an easy interface for writing data into new
 						  % file (used to write metadata into file .xmpdata)
-  \iftoggle{UTF}{\hypersetup{pdfencoding=unicode}}{}%
+  \hypersetup{pdfencoding=unicode}%
   \hypersetup{pdfpagemode=UseNone, bookmarksnumbered=true}%
   \iftoggle{ONLINE}{%
   	\hypersetup{colorlinks=true, urlcolor=blue, linkcolor=blue, citecolor=blue}%
@@ -166,9 +153,7 @@
 }%
 %
 \AtEndPreamble{% Set up the hyperref options
-  \iftoggle{UTF}{%
-  	\hypersetup{pdfencoding=unicode}%
-  }{}%
+  \hypersetup{pdfencoding=unicode}%
   \hypersetup{pdfpagemode=UseNone, bookmarksnumbered=true}%
   \iftoggle{ONLINE}{%
   	\hypersetup{colorlinks=true, urlcolor=blue, linkcolor=blue, citecolor=blue}%
@@ -178,10 +163,9 @@
 }%
 %
 \RequirePackage[T1]{fontenc}%
-\RequirePackage{inputenc}% For scands in both Finnish and English input docs
 \RequirePackage[swedish, finnish, english, main=\MainLang]{babel}%
 \RequirePackage{lmodern}%
-\RequirePackage[kerning, babel]{microtype}%
+\RequirePackage[babel]{microtype}%
 %
 \RequirePackage{calc}%
 \RequirePackage{chngcntr}% Allows counter dependencies to be changed for appendix
