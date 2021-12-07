@@ -247,12 +247,12 @@ Lemma head_rot T n (l : n.+1.-tuple T) (i : 'I_n.+1) x : head x (rot i l) = tnth
 Qed.
 
 Lemma split_into_configurations (l : line) :
-  valid l -> nonzero l -> (∃ i : 'I_Δ, #|tnth l i| > 1) ->
+  nonzero l -> (∃ i : 'I_Δ, #|tnth l i| > 1) ->
   ∃ a b, combination_of a b l ∧
   a ⊂ l ∧ b ⊂ l ∧
   nonzero a ∧ nonzero b.
 Proof.
-  move=> v nz [i ith_big].
+  move=> nz [i ith_big].
   case E : (enum (tnth l i)) => [|ai rest].
     by rewrite cardE E in ith_big.
   case E2 : rest => [| bi resti].
@@ -422,7 +422,7 @@ Theorem combination_is_complete :
   elim/(well_founded_induction strictly_dominated_wf) => orig IH vorig nz.
   case E : [exists i : 'I_Δ, #|tnth orig i| > 1].
     move=> /existsP in E.
-    move: (split_into_configurations vorig nz E) => [a][b][comb][lta][ltb][nza nzb].
+    move: (split_into_configurations nz E) => [a][b][comb][lta][ltb][nza nzb].
     move: (IH a) => []//. apply: dominated_valid. move: lta => /andP[]; eauto. done. move=> a' [a'c a'b].
     move: (IH b) => []//. apply: dominated_valid. move: ltb => /andP[lol _]. apply: lol. by []. move=> b' [b'c b'b].
     move: (bigger_is_better a'b b'b comb) => [c'][comb' sz].
