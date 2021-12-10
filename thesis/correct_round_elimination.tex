@@ -332,34 +332,44 @@ There cannot be an infinite descending chain, as weight decreases while descendi
 
 A \emph{singleton line} is a line that generates just one configuration. It is the configuration with each symbol wrapped in a set.
 
-\begin{lemma}
-For any non-singleton line $l$ there exist two lines strictly dominated by $l$ that can be combined into $l$.
+\begin{lemma}[Line splitting]
+\label{linesplit}
+For any non-singleton line $x$ there exist two lines strictly dominated by $x$ that can be combined into $x$.
 \end{lemma}
 
 \begin{proof}
+Since $x$ is not a singleton line, one of its sets, $S = \{a, b, \dots\}$, must contain multiple elements. Make two lines: one where $S$ is replaced with $S \smallsetminus a$ and another where $S$ is replaced with $S \smallsetminus b$. $(S \smallsetminus a) \cup (S \smallsetminus b) = S$, so $x$ can be built out of them and $x$ strictly dominates them, as they have strictly less symbols in them.
 \end{proof}
 
 \begin{theorem}
-Any line can be built by combining singleton lines.
+\label{explode}
+Any line can be built by combining singleton lines that it dominates.
 \end{theorem}
 
 \begin{proof}
+One can perform well-founded induction on lines because the strict domination relation is well-founded. Thus it suffices to show that if all lines strictly dominated by $x$ can be build from dominated singleton lines, $x$ can be, too.
+
+If $x$ isnt already a singleton line, we can use the line splitting lemma \ref{linesplit} to show that it can be built out of two lines that it strictly dominates. The induction hypothesis tells us that those lines in turn can be built from dominated singleton lines.
 \end{proof}
 
 \subsection{Recombination}
 
 \begin{lemma}[Bigger is better]
+\label{biggood}
 If lines $a$ and $b$ can be combined into $c$ then $a'$ that dominates $a$ and $b'$ that dominates $b$ can be combined into $c'$ that dominates $c$.
 \end{lemma}
 
-\begin{proof}
-\end{proof}
+It is clear that if $a'$ and $b'$ are combined in the same fashion as $a$ and $b$, the result cannot contain less symbols.
 
 \begin{theorem}[Combination is complete]
-A line dominating any valid line can be built by combining input lines.
+\label{complete}
+A line dominating any valid line $x$ can be built by combining input lines.
 \end{theorem}
 
 \begin{proof}
+According to theorem \ref{explode} $x$ can be built from singleton lines that it dominates. Those singleton lines are valid as well, since dominated lines generate strictly less configurations. Being valid singletons, they generate one configuration each, which is contained in some input line.
+
+If one combines those input lines instead, the result is a line dominating $x$ according to lemma \ref{biggood}.
 \end{proof}
 
 \begin{corollary}
@@ -377,15 +387,23 @@ Even if combining lines eventually produces the maximal lines, that doesn't mean
 Define a \emph{missing line} as a valid line that isn't dominated by any of the input lines.
 
 \begin{theorem}
+\label{justtwo}
 If there is a missing line, then some missing line can be obtained by combining two input lines.
 \end{theorem}
 
 In other words, we can make progress by simply trying all combinations of two lines!
 
 \begin{proof}
+According to theorem \ref{complete}, there is some way of combining input lines that produces the missing line. Since they are combinations of the input lines, all lines leading up to the missing line are valid.
+
+By definition a line that is valid but not missing is dominated by some input line. Thus all of them are either missing or dominated by an input line.
+
+Suppose that the lines that combine into the missing line are dominated by input lines. Combining those input lines in the right way yields the missing line or an even better missing line according to lemma \ref{biggood}.
+
+If one (or both) of the lines are missing, recurse into the missing line. This will not continue indefinitely, as all the lines originate from input lines.
 \end{proof}
 
-This gives an efficient process for checking maximality: if all ways of combining two lines result in lines dominated by some existing line, then the current set of lines is maximal.
+Theorem \ref{justtwo} gives an efficient process for checking maximality: if all ways of combining two lines result in lines dominated by some existing line, then the current set of lines is maximal.
 
 A trivial extension yields an algorithm for finding the maximal form: The input lines start in a todo set and there is an empty done set. As long as there are lines in the todo set, take one of them. If it is dominated by some other line in either set, discard it. Otherwise insert it into the done set and insert all combinations of it and lines in the done set into the todo set.
 
