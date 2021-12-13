@@ -112,19 +112,98 @@ RE         & round elimination
 
 \section{Locally Checkable Labeling}
 
-Locally Checkable Labeling (LCL) is a family of graph coloring problems. In them, one has to assign colors to edges or vertices, satisfying some locally checkable condition.
+TODO cite original paper
+
+Locally Checkable Labeling (LCL) is a family of graph problems in which one has to assign colors to edges or vertices, satisfying some locally checkable condition.
 
 Locally checkable means that a solution can be checked by checking fixed size neighborhoods. For example, to verify that vertices are properly colored, one just has to look at the neighbors of each vertex and check that no neighbor has the same color.
 
-\subsection{Encoding for Round Elimination}
+When every vertex has at most $\Delta$ outgoing edges, an LCL-problem can be given as a finite set of allowed neighborhoods. $\Delta$ is the maximum degree of the graph.
 
-Round Elimination operates on a specific kind of edge coloring LCLs. They take place in \emph{biregular} graphs; which means graphs with properly two-colored vertices where the degree of each class of vertices is constant. One of the classes is called the active side and the other is the passive side.
+\newcommand\tick{\fill[scale=0.6, color=green](0,.35) -- (.25,0) -- (1,.7) -- (.25,.15) -- cycle;}
+\newcommand\cross{\draw[scale=0.3, very thick, color=red] (0,0) -- (1, 1) {} (0, 1) -- (1, 0) {};}
 
-Each side's vertices have their own rule that governs the combinations of colors neighboring edges are allowed to have. The rules can be written down by listing all allowed color combinations. Each allowed color combination is called a \emph{configuration}.
+\begin{figure}[h]
+\centering
+\begin{tikzpicture}[line width=1pt]
+  \foreach \i/\a/\b/\c/\ok in {0/-latex/latex-/latex-/\tick, 1/-latex/-latex/latex-/\tick, 2/-latex/-latex/-latex/\tick, 3/latex-/latex-/latex-/\cross}
+  {
+    \tikzset{xshift={\i * 7em}}
+    \node [active] at (0,0) (center) {};
+    \draw [\a] (center) -- (-90:1);
+    \draw [\b] (center) -- (30:1);
+    \draw [\c] (center) -- (150:1);
+    \tikzset{xshift=1.4em, yshift=-1.8em}
+    \ok
+  }
 
-Most problems don't naturally give rise to this kind of LCL but have to be converted into it.
+  \tikzset{yshift=5em}
+  \foreach \i/\a/\b/\ok in {0/-latex/latex-/\tick, 1/-latex/-latex/\tick, 3/latex-/latex-/\cross}
+  {
+    \tikzset{xshift={\i * 7em}}
+    \node [active] at (0,0) (center) {};
+    \draw [\a] (center) -- (-1,0);
+    \draw [\b] (center) -- (1,0);
+    \tikzset{xshift=1.4em, yshift=-1.8em}
+    \ok
+  }
 
-For example, take sinkless orientation. In that problem a direction must to be assigned to each edge, such that no vertex has only incoming edges.
+  \tikzset{yshift=5em}
+  \foreach \i/\a/\ok in {0/-latex/\tick, 3/latex-/\cross}
+  {
+    \tikzset{xshift={\i * 7em}}
+    \node [active] at (0,0) (center) {};
+    \draw [\a] (center) -- (-1,0);
+    \tikzset{xshift=1.4em, yshift=-1.8em}
+    \ok
+  }
+\end{tikzpicture}
+\caption{An exhaustive list of neighborhoods for checking sinkless orientation in a graph with maximum degree three.}
+\end{figure}
+
+I will use sinkless orientation as running example in this paper. It is the problem of selecting a direction for each edge so that no vertex has only incoming edges. To check sinkless orientation, it is suffices to see the neighboring edges. There are other problems that require seeing a larger neighborhood, such as distance-2 coloring, the problem of choosing different colors for every pair of vertices the shortest distance of which is two.
+
+\newcommand\samplegraph
+{
+  \node [active] at (0,0) (a) {};
+  \node [active] at (1,0) (b) {};
+  \node [active] at (2,0) (c) {};
+  \node [active] at (1.5,1) (d) {};
+}
+
+\begin{figure}[h]
+\centering
+\begin{tikzpicture}[line width=1pt]
+  \samplegraph
+  \draw (a) -- (b) -- (c) -- (d) -- (b);
+
+  \tikzset{xshift=10em}
+  \samplegraph
+  \draw [-latex] (a) -- (b);
+  \draw [-latex] (b) -- (c);
+  \draw [-latex] (c) -- (d);
+  \draw [-latex] (d) -- (b);
+\end{tikzpicture}
+\caption{An undirected and the unique solution to sinkless orientation in it.}
+\end{figure}
+
+\subsection{Problem representation used by Round Elimination}
+
+Biregular graphs are graphs that have properly two-colored vertices and where the degree of each class of vertices is constant. TODO they are always infinite and edges are handled separately.
+
+Round Elimination operates on edge coloring LCL-problems in biregular graphs that can be checked by checking neighborhoods that only reach the nearest edges.
+
+Sinkless orientation is not such a problem. To begin with, edge orientation is not a color. (TODO but is so an LCL at all then?) However, there is an isomorphism between our sinkless orientation problem and a problem suitable for round elimination. But first, I will present a simple way of representing RE problems.
+
+In round elimination, one of the classes is called the active side and the other the passive side. The active side nodes are active in the sense that they are the computers in a network that have to choose the colors of their neighboring edges.
+
+Since each neighborhood can only see a vertex and a number of edges, we can simply list all multisets of edge colors allowed. They are called \emph{configurations}. There are two sets of configurations, the configurations around active nodes, $A$, and the ones around passive nodes, $P$.
+
+An RE problem can be represented as sets $A$ and $P$. The symbols in the configurations are from an alphabet $\Sigma$.
+
+\subsection{Conversion from LCL}
+
+I will now show how to represent sinkless orientation for RE. Each vertex in the original graph corresponds to an active vertex in the RE graph. Edges correspond to passive vertices. We can describe the directions of edges by coloring them with I (for incoming) on O (for outgoing).
 
 \begin{figure}[h]
 \centering
@@ -154,7 +233,17 @@ For example, take sinkless orientation. In that problem a direction must to be a
 \caption{Correspondence between solutions in round elimination graph and original graph}
 \end{figure}
 
-Each vertex in the original graph corresponds to an active vertex in the new one and edges correspond to passive vertices. We can describe the directions of edges by coloring them with I (for incoming) on O (for outgoing). The active side's rule follows from the problem description: all edges must not be incoming. The passive side's rule ensures that each edge is incoming on one end and outgoing on the other; otherwise there could be edges with an arrowhead on both sides.
+The active side's rule lists all the valid neighborhoods. The passive side's rule ensures that each edge is incoming on one end and outgoing on the other; otherwise there could be edges with an arrowhead on both sides.
+
+\begin{align*}
+\Sigma &= \{I, O\} \\
+A &= \{[I, I, O], [I, O, O], [O, O, O]\} \\
+P &= \{[I, O]\}
+\end{align*}
+
+The cases of sinkless orientation that deal with nodes of lower degree can be disregarded, since the active nodes in the biregular graph all have the same degree. (TODO but didn't we discover that we can do RE in non-regular graphs?)
+
+TODO generalizing the conversion
 
 \subsection{The LOCAL model}
 
