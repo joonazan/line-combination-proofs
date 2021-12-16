@@ -425,7 +425,7 @@ Define the weight of a line as the sum of its sets' cardinalities. Obviously no 
 There cannot be an infinite descending chain, as weight decreases while descending and weight is a natural number.
 \end{proof}
 
-\subsection{Exploding lines}
+\subsection{Building lines}
 
 A \emph{singleton line} is a line that generates just one configuration. It is the configuration with each symbol wrapped in a set.
 
@@ -448,8 +448,6 @@ One can perform well-founded induction on lines because the strict domination re
 
 If $x$ isnt already a singleton line, we can use the line splitting lemma \ref{linesplit} to show that it can be built out of two lines that it strictly dominates. The induction hypothesis tells us that those lines in turn can be built from dominated singleton lines.
 \end{proof}
-
-\subsection{Recombination}
 
 \begin{lemma}[Bigger is better]
 \label{biggood}
