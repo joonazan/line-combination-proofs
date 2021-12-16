@@ -387,8 +387,14 @@ In this section I will present a maximization algorithm based on combining lines
 
 My new maximization algorithm mostly consists of combining lines. Two lines can be combined by pairing up their sets and taking the union of one pair and the intersection of the rest.
 
-TODO image
-caption: one possible way to combine \reline{IO IO O} with itself
+\begin{figure}[h]
+\begin{align*}
+  \{I,O\} &\cup \{O\} = \{I, O\} \\
+  \{I,O\} &\cap \{I,O\} = \{I, O\} \\
+  \{O\} &\cap \{I, O\} = \{O\}
+\end{align*}
+\caption{one possible way to combine \reline{IO IO O} with itself}
+\end{figure}
 
 \begin{theorem}[Combination is sound]
 \label{sound}
