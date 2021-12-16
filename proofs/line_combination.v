@@ -464,18 +464,20 @@ Lemma bigger_missing a b : a ⊆ b -> missing a -> missing b.
   by rewrite lol.
 Qed.
 
-Lemma combination_chain x : iterated_combination x ->
-  (∃ x', x ⊆ x' ∧ x' \in input) ∨ ∃ a b c, a \in input ∧ b \in input ∧ combination_of a b c ∧ nonzero c ∧ missing c.
+Lemma combination_chain x : iterated_combination x -> missing x ->
+  ∃ a b c, a \in input ∧ b \in input ∧ combination_of a b c ∧ nonzero c ∧ missing c.
   elim.
-    move=> a aa; left; exists a; split; by [apply: dominates_refl |].
-  move=> a b c ica [IHa|IHa] icb [IHb|IHb] comb; [|by right|by right|by right].
-  case E : (missing c); last first.
-    move: E => /forall_inPn[c' cin /negPn cc]; left; exists c'; by split.
-  move: IHa IHb => [a' [asub ain]] [b' [bsub bin]].
-  move: (bigger_is_better asub bsub comb) => [c' [comb' cc]].
-  right; exists a', b', c'; split_and.
-    by apply: (bigger_nonzero cc).
-  by apply: (bigger_missing cc).
+    move=> a aa nza /forallP; move/(_ a); by rewrite aa dominates_refl.
+  move=> a b c ica IHa icb IHb comb nzc mc.
+  case Ea : (missing a). by apply: IHa.
+  move: Ea => /forall_inPn[a' a'i /negPn a'd].
+  case Eb : (missing b). by apply: IHb.
+  move: Eb => /forall_inPn[b' b'i /negPn b'd].
+  move: (bigger_is_better a'd b'd comb) => [c' [c'c c'd]].
+  exists a', b', c'.
+  split_and.
+    by apply: (bigger_nonzero c'd).
+  by apply: (bigger_missing c'd).
 Qed.
 
 Theorem combining_two_suffices (x : line):
@@ -484,12 +486,8 @@ Theorem combining_two_suffices (x : line):
 Proof.
   move=> missing_prf missingnz missingv.
   move: (combination_is_complete missingv missingnz) => [missing_super][ic super].
-  move: (combination_chain ic) => [[super2 [super2' super2in]]|] => //.
-  exfalso.
-  have /forall_inP : missing super2.
-    by apply: (bigger_missing super2'); apply: (bigger_missing super).
-  move/ (_ super2 super2in).
-  by rewrite dominates_refl.
+  apply: (combination_chain ic).
+  by apply: (bigger_missing super).
 Qed.
 
 Definition all_combinations (a b : line) := [:: a; b]. (*TODO*)
