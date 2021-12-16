@@ -245,15 +245,17 @@ The cases of sinkless orientation that deal with nodes of lower degree can be di
 
 TODO generalizing the conversion
 
-\subsection{The LOCAL model}
+\subsection{The port numbering model}
 
-This paper (and Round Elimination) is specifically about solving LCL-problems in the LOCAL model.
+Round Elimination is an algorithm that transform an RE problem. That transformation has interpretations in many models of distributed computing.
 
-In the LOCAL model, each vertex runs the same program and must produce its own part of the solution. Each vertex can see its own unique id.
+TODO fold this into the RE section and write port numbering proof.
+
+In the port numbering model, each vertex runs the same program and must produce its own part of the solution.
 
 First, vertices get to compute as much as they need to. Then they send a message to each of their neighbors. All vertices receive the messages simultaneously. This process repeats until all vertices have chosen their output.
 
-A problem for which there exists an algoritm that gives the correct output after $r$ rounds is called $r$-round solvable.
+A problem for which there exists an algorithm that gives the correct output after $r$ rounds is called $r$-round solvable.
 
 It can be shown that an $r$-round solvable problem is a problem where a correct output can be computed from the neighborhood of vertices up to $r$ edges away.
 
