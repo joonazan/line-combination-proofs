@@ -489,13 +489,13 @@ If there is a missing line, then some missing line can be obtained by combining 
 In other words, we can make progress by simply trying all combinations of two lines!
 
 \begin{proof}
-According to theorem \ref{complete}, there is some way of combining input lines that produces the missing line. Since they are combinations of the input lines, all lines leading up to the missing line are valid.
+According to theorem \ref{complete}, there is some way of combining input lines that produces the missing line. Since they are combinations of the input lines, all lines leading up to the missing line are valid due to theorem \ref{sound}.
 
 By definition a line that is valid but not missing is dominated by some input line. Thus all of them are either missing or dominated by an input line.
 
 Suppose that the lines that combine into the missing line are dominated by input lines. Combining those input lines in the right way yields the missing line or an even better missing line according to lemma \ref{biggood}.
 
-If one (or both) of the lines are missing, recurse into the missing line. This will not continue indefinitely, as all the lines originate from input lines.
+If one (or both) of the lines are missing, recurse into the missing line. There will be a pair of non-missing lines eventually, as the combination starts with input lines.
 \end{proof}
 
 Theorem \ref{justtwo} gives an efficient process for checking maximality: if all ways of combining two lines result in lines dominated by some existing line, then the current set of lines is maximal.
