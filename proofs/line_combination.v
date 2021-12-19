@@ -112,15 +112,12 @@ Lemma dominates_trans {n} (a b c : n.-line) : a ⊆ b -> b ⊆ c -> a ⊆ c.
   fill_ex a'.
   fill_ex [tuple tnth c'' (p i) | i < n].
   split_and.
-    move: pc; rewrite perm_sym; move=> /tuple_permP[p2 pp2].
-    rewrite (val_inj pp2) mktuple_mktuple perm_sym.
-    have ll : (λ i, tnth c (p2 (p i))) =1 λ i, tnth c ((p * p2)%g i).
-      by move=> i; rewrite permM.
-    by rewrite (eq_mktuple _ ll); apply: any_perm.
+    by apply: (perm_trans pc); rewrite perm_sym any_perm.
   apply/all2_tnthP => i; rewrite tnth_mktuple.
   apply: subset_trans; last apply: ss2.
+  apply: subset_trans; first apply: ss.
   move: pp => /val_inj/eqP. rewrite eqEtuple => /forallP.
-  by move/(_ i); rewrite tnth_mktuple => /eqP x; rewrite -x.
+  by move/(_ i); rewrite tnth_mktuple => /eqP x; rewrite x.
 Qed.
 
 Lemma dominates_configurations (a b : line) :
