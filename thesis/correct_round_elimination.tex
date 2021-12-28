@@ -262,15 +262,15 @@ It can be shown that an $r$-round solvable problem is a problem where a correct 
 
 \section{Round Elimination}
 
-Brandt et al.\ introduced round elimination in 2019\cite{speedup}. As the name suggests, it takes a problem $\Pi_0$ that can be solved in $r$ rounds and outputs a new problem $\Pi_1$ that is solvable in $r-1$ rounds. But what is $\Pi_1$ relationship to $\Pi_0$?
+Brandt et al.~\cite{speedup} introduced round elimination in 2019. As the name suggests, it takes a problem $\Pi_0$ that can be solved in $r$ rounds and outputs a new problem $\Pi_1$ that is solvable in $r-1$ rounds. But what is $\Pi_1$ relationship to $\Pi_0$?
 
 While $\Pi_0$ assigns a color to each edge, $\Pi_1$ assigns a set of colors each edge. That set contains the colors that the edge could have in a solution to $\Pi_0$. There is uncertainty because in $r-1$ rounds some information that affects the solution of $\Pi_0$ is out of reach.
 
 \subsection{Lines}
 
-Dennis Olivetti wrote an implementation of round elimination called Round Eliminator\cite{RE}. Round Elimination has been used to prove bounds on time complexity for various problems in the LOCAL model\cite{tc1, tc2, tc3}.
+Dennis Olivetti~\cite{RE} wrote an implementation of round elimination called Round Eliminator. Round Elimination has been used to prove bounds on time complexity for various problems in the LOCAL model~\cite{tc1, tc2, tc3}.
 
-In Round Eliminator, problems are represented as \emph{lines}. Lines are a kind of shorthand notation that compresses multiple configurations into one line. Each line is a multiset of sets and represents or \emph{generates} all the configurations obtained by choosing one color from each set.\cite{RE}
+In Round Eliminator, problems are represented as \emph{lines}. Lines are a kind of shorthand notation that compresses multiple configurations into one line. Each line is a multiset of sets and represents or \emph{generates} all the configurations obtained by choosing one color from each set.~\cite{RE}
 
 For example, the line \reline{A BC} generates the configurations \reline{A B} and \reline{A C}.
 
@@ -291,7 +291,7 @@ For example, the line \reline{A BC} generates the configurations \reline{A B} an
 \subsection{Formal definition}
 The configurations of $\Pi_1$ have the exact same shape as lines of $\Pi_0$: multisets of nonempty sets of symbols from $\Pi_0$'s alphabet, so it is convenient to talk about them as lines. I will call $\Pi_0$'s alphabet, active side and passive side $\Sigma_0$, $A_0$ and $P_{0}$ respectively and use the same notation to refer to $\Pi_{1}$'s components
 
-The definition of RE from Distributed Algorithms 2020\cite{DA2020} rephrased in terms of lines:
+The definition of RE from Distributed Algorithms 2020~\cite{DA2020} rephrased in terms of lines:
 \begin{itemize}
   \item $\Sigma_1$ is the powerset of $\Sigma_0$ minus the empty set.
   \item $A_{1}$ consists of all lines that only generate configurations present in $P_{0}$.
@@ -317,7 +317,7 @@ Suppose the picture below is part of a solution to $\Pi_{1}$. One can see that \
 
 In that alternative solution \reline{ac~af} has to be in $P_{1}$. \reline{a~af} is in $P_{1}$, so it generates some configuration from $A_{0}$. \reline{ac~af} generates strictly more configurations, so it is in $P_{1}$, too.
 
-As every solution using \reline{x~a} can use \reline{x~ac} instead, \reline{x~a} can be omitted. In general, if two lines A and B can be ordered so that $\forall i : A_i \subseteq B_i$, A can be omitted.\cite{DA2020} For any A and B satisfying that criterion I say that B dominates A and A is dominated by B.
+As every solution using \reline{x~a} can use \reline{x~ac} instead, \reline{x~a} can be omitted. In general, if two lines A and B can be ordered so that $\forall i : A_i \subseteq B_i$, A can be omitted.~\cite{DA2020} For any A and B satisfying that criterion I say that B dominates A and A is dominated by B.
 
 \tikzset{
   EdgeStyle/.append style = {->}
@@ -366,7 +366,7 @@ Finally, to make the representation more compact, the symbols in the new alphabe
 
 \section{Coq Primer}
 
-Before discussing my novel round elimination algorithm, I need to explain the basics of Coq because I will show the lemmas concerning its correctness as written in Coq's Vernacular. I will also give informal proofs. The actual proofs involve many boring details, which this paper does not cover. However, the Proving section will show examples of the most important proof techniques used. The full source code can be found in the project's repository\cite{source_code}.
+Before discussing my novel round elimination algorithm, I need to explain the basics of Coq because I will show the lemmas concerning its correctness as written in Coq's Vernacular. I will also give informal proofs. The actual proofs involve many boring details, which this paper does not cover. However, the Proving section will show examples of the most important proof techniques used. The full source code can be found in the project's repository~\cite{source_code}.
 
 \begin{listing}[h]
 \begin{minted}{Coq}
