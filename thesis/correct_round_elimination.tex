@@ -302,7 +302,7 @@ The definition of RE from Distributed Algorithms 2020\cite{DA2020} rephrased in 
 
 Round Elimination produces a gigantic number of configurations. Especially the new passive side contains almost every possible configuration. For example, suppose $\Sigma_{0} = {a, b, c}$ and $A_0$ has a configuration \reline{a~b}. Now $P_{1}$ contains \reline{a~b} but also \reline{ab~b}, \reline{ac~b}, \reline{abc~b}, \reline{a~ab}, \reline{a~bc}, \reline{a~abc}, \reline{ab~ab}, \reline{ab~bc}, \reline{ab~abc}, \reline{ac~ab}, \reline{ac~bc}, \reline{ac~abc}, \reline{abc~ab}, \reline{abc~bc} and \reline{abc~abc}. If we were to use this directly, the problem size would grow at an alarming rate with successive applications of round elimination, so it makes sense to optimize output size over round elimination speed.
 
-One simple optimization is to discard all active configurations containing symbols that don't appear in any passive configurations and vice versa, as using them is impossible. But that isn't the only thing that can be done.
+One simple optimization is to discard all active configurations containing symbols that don't appear in any passive configurations and vice versa, as using them is impossible. But even more can be discarded.
 
 \subsubsection{Maximal form}
 
@@ -479,14 +479,14 @@ The maximal lines can be built by combining input lines.
 \end{corollary}
 
 \begin{proof}
-A line is maximal if it is not strictly dominated by any valid line, thus a valid line dominating a maximal line must be equal to it. Lines obtained by combining input lines are valid; Theorem \ref{sound} shows that combining does not enable new configurations.
+A line is maximal if no valid line strictly dominates it. Thus a valid line dominating a maximal line must be equal to it. Lines obtained by combining input lines are valid; Theorem \ref{sound} shows that combining does not enable new configurations.
 \end{proof}
 
 \subsection{Efficiently finding the maximal lines}
 
-Even if combining lines eventually produces the maximal lines, that does not mean it is an efficient way of finding them. Building a maximal line could require hundreds of combinations!
+Even if combining lines eventually produces the maximal lines, it may not be an efficient way of finding them. Building a maximal line could require hundreds of combinations!
 
-Define a \emph{missing line} as a valid line that is not dominated by any of the input lines.
+Define a \emph{missing line} as a valid line dominated by none of the input lines.
 
 \begin{lemma}
 \label{biggermissing}
@@ -520,7 +520,7 @@ A trivial extension yields an algorithm for finding the maximal form: The input 
 
 \section{Coq proof explanation TODO}
 
-In this section I'll present a maximization algorithm based on combining lines and the lemmas that I used to prove its correctness. I'll show the most important lemmas as they are written in Coq but present the proofs informally. The Proving section contains information on how the mechanized proofs were developed.
+In this section I will present a maximization algorithm based on combining lines and the lemmas that I used to prove its correctness. I will show the most important lemmas as they are written in Coq but present the proofs informally. The Proving section contains information on how the mechanized proofs were developed.
 
 \newcommand\icoq[1]{\mintinline{Coq}{#1}}
 
@@ -539,9 +539,9 @@ Definition configuration := Δ.-tuple color.
 \caption{Definition of lines and configurations used throughout the proof.}
 \end{listing}
 
-Variables like \icoq{alphabet_size} automatically become arguments of any function that uses them in Coq. They are very convenient here, as I'd otherwise have to explicitly make many lemmas depend on the alphabet size and $\Delta$.
+Variables like \icoq{alphabet_size} automatically become arguments of any function that uses them in Coq. They are very convenient here, as I would otherwise have to explicitly make many lemmas depend on the alphabet size and $\Delta$.
 
-I use \icoq{one_minus_delta} to ensure that $\Delta$ is positive. That way I don't need to deal with the uninteresting case where vertices aren't connected at all. I could instead add \icoq{Variable nonzero_delta := Δ <> 0} but then I'd have to explicitly use it every time to eliminate the zero case.
+I use \icoq{one_minus_delta} to ensure that $\Delta$ is positive. That way I do not need to deal with the uninteresting case where vertices are not connected at all. I could instead add \icoq{Variable nonzero_delta := Δ <> 0} but then I would have to explicitly use it every time to eliminate the zero case.
 
 \begin{listing}[h]
 \begin{minted}{Coq}
@@ -610,7 +610,7 @@ Maximization is the most expensive part of the original Round Eliminator's algor
 
 The maximization algorithm previously used in Round Eliminator computes the set of invalid configurations by filtering all $|\Sigma|^{\Delta}$ possible configurations.
 
-If every configuration was allowed, the maximal form would simply be a line that generates every configuration. The old algorithm starts with a list containing just that line. It then goes through all the invalid configurations, replacing every line in its list with narrowed down lines that don't generate that configuration.
+If every configuration was allowed, the maximal form would simply be a line that generates every configuration. The old algorithm starts with a list containing just that line. It then goes through all the invalid configurations, replacing every line in its list with narrowed down lines that do not generate that configuration.
 
 The algorithm considers all permutations separately, so it produces $\Delta!$ copies of the output lines before deduplication.
 
@@ -626,7 +626,7 @@ The new lines found do not increase the number of configurations covered.
 
 \subsection{Line combination}
 
-The new algorithm's runtime doesn't depend on the size of the alphabet.
+The new algorithm's runtime does not depend on the size of the alphabet.
 
 is approximately $O(n^{3}\Delta!)$.
 
