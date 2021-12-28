@@ -247,26 +247,11 @@ The cases of sinkless orientation that deal with nodes of lower degree can be di
 
 TODO generalizing the conversion
 
-\subsection{The port numbering model}
-
-Round Elimination is an algorithm that transforms an RE problem. That transformation has interpretations in many models of distributed computing.
-
-TODO fold this into the RE section and write port numbering proof.
-
-In the port numbering model, each vertex runs the same program and must produce its own part of the solution.
-
-First, vertices get to compute as much as they need to. Then they send a message to each of their neighbors. All vertices receive the messages simultaneously. This process repeats until all vertices have chosen their output.
-
-A problem for which there exists an algorithm that gives the correct output after $r$ rounds is called $r$-round solvable.
-
-It can be shown that an $r$-round solvable problem is a problem where a correct output can be computed from the neighborhood of vertices up to $r$ edges away.
-
-
 \section{Round Elimination}
 
-Brandt et al.~\cite{speedup} introduced round elimination in 2019. As the name suggests, it takes a problem $\Pi_0$ that can be solved in $r$ rounds and outputs a new problem $\Pi_1$ that is solvable in $r-1$ rounds. But what is $\Pi_1$ relationship to $\Pi_0$?
+Brandt et al.~\cite{speedup} introduced round elimination in 2019. It is a procedure that takes a round elimination problem $\Pi_0$ and outputs a new problem $\Pi_1$. It has interpretations in various models of distributed computing. As the name suggests, $\Pi_1$ can generally be solved one round faster than $\Pi_0$.
 
-While $\Pi_0$ assigns a color to each edge, $\Pi_1$ assigns a set of colors each edge. That set contains the colors that the edge could have in a solution to $\Pi_0$. There is uncertainty because in $r-1$ rounds some information that affects the solution of $\Pi_0$ is out of reach.
+While $\Pi_0$ assigns a color to each edge, $\Pi_1$ assigns a set of colors each edge. That set contains the colors that the edge could have in a solution to $\Pi_0$. There is uncertainty because in one round less some information that affects the solution of $\Pi_0$ is out of reach.
 
 \subsection{Lines}
 
@@ -274,20 +259,17 @@ Dennis Olivetti~\cite{RE} wrote an implementation of round elimination called Ro
 
 In Round Eliminator, problems are represented as \emph{lines}. Lines are a kind of shorthand notation that compresses multiple configurations into one line. Each line is a multiset of sets and represents or \emph{generates} all the configurations obtained by choosing one color from each set.~\cite{RE}
 
-For example, the line \reline{A BC} generates the configurations \reline{A B} and \reline{A C}.
+For example, the line \reline{IO IO O} generates the configurations $[I, O, O]$, $[I, I, O]$ and $[O, O, O]$. ($[O, I, O]$ is the same as $[I, O, O]$, since lines and configurations are unordered.)
 
 \begin{figure}[h]
   \centering
-  \begin{tcolorbox}[width=.2\textwidth, nobeforeafter, title=active side]
-  A A A A \\
-  B B B B \\
-  C C C C
+  \begin{tcolorbox}[width=.22\textwidth, nobeforeafter, title=active side]
+  IO IO O
   \end{tcolorbox}
-  \begin{tcolorbox}[width=.2\textwidth, nobeforeafter, title=passive side]
-  A BC \\
-  B C
+  \begin{tcolorbox}[width=.22\textwidth, nobeforeafter, title=passive side]
+  I O
   \end{tcolorbox}
-  \caption{Three-coloring of a (4,2)-regular graph in Round Eliminator's shorthand}
+  \caption{Sinkless orientation in Round Eliminator's shorthand}
 \end{figure}
 
 \subsection{Formal definition}
@@ -302,7 +284,7 @@ The definition of RE from Distributed Algorithms 2020~\cite{DA2020} rephrased in
 
 \subsection{Optimizing output size}
 
-Round Elimination produces a gigantic number of configurations. Especially the new passive side contains almost every possible configuration. For example, suppose $\Sigma_{0} = {a, b, c}$ and $A_0$ has a configuration \reline{a~b}. Now $P_{1}$ contains \reline{a~b} but also \reline{ab~b}, \reline{ac~b}, \reline{abc~b}, \reline{a~ab}, \reline{a~bc}, \reline{a~abc}, \reline{ab~ab}, \reline{ab~bc}, \reline{ab~abc}, \reline{ac~ab}, \reline{ac~bc}, \reline{ac~abc}, \reline{abc~ab}, \reline{abc~bc} and \reline{abc~abc}. If we were to use this directly, the problem size would grow at an alarming rate with successive applications of round elimination, so it makes sense to optimize output size over round elimination speed.
+Round Elimination produces a gigantic number of configurations. Especially the new passive side contains almost every possible configuration. For example, suppose $\Sigma_{0} = {a, b, c}$ and $A_0$ has a configuration $[a, b]$. Now $P_{1}$ contains \reline{a~b} but also \reline{ab~b}, \reline{ac~b}, \reline{abc~b}, \reline{a~ab}, \reline{a~bc}, \reline{a~abc}, \reline{ab~ab}, \reline{ab~bc}, \reline{ab~abc}, \reline{ac~ab}, \reline{ac~bc}, \reline{ac~abc}, \reline{abc~ab}, \reline{abc~bc} and \reline{abc~abc}. If we were to use this directly, the problem size would grow at an alarming rate with successive applications of round elimination, so it makes sense to optimize output size over round elimination speed.
 
 One simple optimization is to discard all active configurations containing symbols that don't appear in any passive configurations and vice versa, as using them is impossible. But even more can be discarded.
 
@@ -319,7 +301,7 @@ Suppose the picture below is part of a solution to $\Pi_{1}$. One can see that \
 
 In that alternative solution \reline{ac~af} has to be in $P_{1}$. \reline{a~af} is in $P_{1}$, so it generates some configuration from $A_{0}$. \reline{ac~af} generates strictly more configurations, so it is in $P_{1}$, too.
 
-As every solution using \reline{x~a} can use \reline{x~ac} instead, \reline{x~a} can be omitted. In general, if two lines A and B can be ordered so that $\forall i : A_i \subseteq B_i$, A can be omitted.~\cite{DA2020} For any A and B satisfying that criterion I say that B dominates A and A is dominated by B.
+As every solution using \reline{x~a} can use \reline{x~ac} instead, \reline{x~a} can be omitted. In general, A can be omitted if A and B can be paired up so that for each pair $(a, b)$ where $a \in A$ and $b \in B$ it holds that $a \subseteq b$.~\cite{DA2020} For any A and B satisfying that criterion I say that B \emph{dominates} A and A is dominated by B.
 
 \tikzset{
   EdgeStyle/.append style = {->}
@@ -348,23 +330,35 @@ As every solution using \reline{x~a} can use \reline{x~ac} instead, \reline{x~a}
   \caption{Graph of lines dominated by \reline{a~abc}.}
 \end{figure}
 
-Note that domination is not the same relation as $\text{configurations}(A) \subseteq \text{configurations}(B)$. \reline{a abc ade} generates \reline{a b e}, while \reline{a a bcde} only generates configurations that are in \reline{a abc ade}. Yet they are incomparable in terms of domination.
+Note that domination is not the same relation as the subset relation of generated configurations. \reline{a abc ade} generates $[a, b, e]$, while \reline{a a bcde} only generates configurations that are in the former. Yet they are incomparable in terms of domination.
 
-The subset of $A_{1}$ dominated by none is called the maximal form of $P_{0}$. Or one could say that the maximal form of $S$ is the Pareto front of \emph{valid} lines with respect to domination, where valid means that a line only generates configurations that $S$ generates.
+The subset of $A_{1}$ dominated by none is called the \emph{maximal form} of $P_{0}$. Or one could say that the maximal form of $S$ is the Pareto front of \emph{valid} lines with respect to domination, where valid means that a line only generates configurations that $S$ generates.
 
 It seems unlikely that some approximation of the maximal form would be cheaper to compute, as any result of round elimination must include the maximal lines. An approximation would just include some extra lines along with them.
 
 This work's main contribution is a new algorithm for finding the maximal form of $P_{0}$ by combining lines and its proof.
 
-% TODO explain proof that sets of configurations and lines are isomorphic
+TODO explain proof that sets of configurations and lines are isomorphic
 
 \subsection{Putting it all together}
 
-To perform round elimination, one first finds the maximal form of the passive side. The new active side is a version of the maximal form where every set contains a single element, the corresponding set from the maximal form.
+To perform round elimination, one first finds the maximal form of $P_0$. The new active side, $A_1$, is a version of the maximal form where every set contains a single element, the corresponding set from the maximal form.
 
-The new passive side is built simply by taking every line in the old active side and replacing the sets with all symbols from the new alphabet that contain the any of the old symbols.
+The new alphabet, $\Sigma_1$ consists of all symbols found in $A_1$.
 
-Finally, to make the representation more compact, the symbols in the new alphabet are converted from subsets of the old alphabet to ordinals simply by enumerating the symbols.
+The new passive side is built by replacing every set in $A_0$ with the set of all symbols from $\Sigma_1$ that it intersects.
+
+Finally, to make the representation more compact, $\Sigma_1$ is converted from subsets of $\Sigma_0$ to ordinals simply by enumerating the symbols.
+
+\subsection{Interpretation in the port numbering model}
+
+In the port numbering model, each vertex runs the same program and must produce its own part of the solution. Each vertex has numbered ports through which it communicates with its neighbors.
+
+Computation work as follows: first, vertices get to compute as much as they need to. Then they send a message to each of their neighbors. All vertices receive the messages simultaneously. This process repeats until all vertices have chosen their output.
+
+A problem for which there exists an algorithm that gives the correct output after $r$ rounds is called $r$-round solvable.
+
+It can be shown that an $r$-round solvable problem is a problem where a correct output can be computed from the neighborhood of vertices up to $r$ edges away.
 
 \section{Coq Primer}
 
