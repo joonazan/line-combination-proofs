@@ -114,13 +114,13 @@ RE         & round elimination
 
 TODO cite original paper
 
-Locally Checkable Labeling (LCL) is a family of graph problems in which one has to assign colors to edges or vertices, satisfying some locally checkable condition.
+Locally checkable labeling (LCL) is a family of graph problems in which one has to assign colors to edges or vertices, satisfying some locally checkable condition.
 
 Locally checkable means that a solution can be checked by checking fixed size neighborhoods. For example, to verify that vertices are properly colored, one just has to look at the neighbors of each vertex and check that no neighbor has the same color.
 
-When every vertex has at most $\Delta$ outgoing edges, an LCL-problem can be given as a finite set of allowed neighborhoods. $\Delta$ is the maximum degree of the graph.
+When every vertex has at most $\Delta$ outgoing edges, an LCL-problem can be given as a finite set of allowed neighborhoods, where $\Delta$ is the maximum degree of the graph.
 
-\newcommand\tick{\fill[scale=0.6, color=green](0,.35) -- (.25,0) -- (1,.7) -- (.25,.15) -- cycle;}
+\newcommand\tick{\fill[scale=0.6, color=black!40!green](0,.35) -- (.25,0) -- (1,.7) -- (.25,.15) -- cycle;}
 \newcommand\cross{\draw[scale=0.3, very thick, color=red] (0,0) -- (1, 1) {} (0, 1) -- (1, 0) {};}
 
 \begin{figure}[h]
@@ -161,7 +161,7 @@ When every vertex has at most $\Delta$ outgoing edges, an LCL-problem can be giv
 \caption{An exhaustive list of neighborhoods for checking sinkless orientation in a graph with maximum degree three.}
 \end{figure}
 
-I will use sinkless orientation as running example in this paper. It is the problem of selecting a direction for each edge so that no vertex has only incoming edges. To check sinkless orientation, it is suffices to see the neighboring edges. There are other problems that require seeing a larger neighborhood, such as distance-2 coloring, the problem of choosing different colors for every pair of vertices the shortest distance of which is two.
+I will use \emph{sinkless orientation} as running example in this paper. It is the problem of selecting a direction for each edge so that no vertex has only incoming edges. To check sinkless orientation, it is suffices to see the neighboring edges. There are other problems that require seeing a larger neighborhood, such as distance-2 coloring, the problem of choosing different colors for every pair of vertices the shortest distance of which is two.
 
 \newcommand\samplegraph
 {
@@ -187,23 +187,21 @@ I will use sinkless orientation as running example in this paper. It is the prob
 \caption{An undirected and the unique solution to sinkless orientation in it.}
 \end{figure}
 
-\subsection{Problem representation used by Round Elimination}
+\subsection{Round Elimination problems}
 
-Biregular graphs are graphs that have properly two-colored vertices and where the degree of each class of vertices is constant. TODO they are always infinite and edges are handled separately.
+\emph{Biregular graphs} are graphs that have properly two-colored vertices and where the degree of each class of vertices is constant. Round Elimination operates on edge coloring LCL-problems in biregular graphs that can be checked by only checking the nearest edges' colors. I call this kind of problem a \emph{Round elimination problem} or RE problem.
 
-Round Elimination operates on edge coloring LCL-problems in biregular graphs that can be checked by checking neighborhoods that only reach the nearest edges.
+Sinkless orientation is not such a problem. To begin with, edge orientation is not a color. However, there is an isomorphism between the solutions our sinkless orientation problem and the solutions of an RE problem. But first, I will present a simple way of representing RE problems.
 
-Sinkless orientation is not such a problem. To begin with, edge orientation is not a color. (TODO but is so an LCL at all then?) However, there is an isomorphism between our sinkless orientation problem and a problem suitable for round elimination. But first, I will present a simple way of representing RE problems.
+In round elimination, one of the classes of the biregular graph is called the \emph{active side} and the other the \emph{passive side}. The active side nodes are active in the sense that they are the computers in a network that have to choose the colors of their neighboring edges.
 
-In round elimination, one of the classes is called the active side and the other the passive side. The active side nodes are active in the sense that they are the computers in a network that have to choose the colors of their neighboring edges.
-
-Since each neighborhood can only see a vertex and a number of edges, we can simply list all multisets of edge colors allowed. They are called \emph{configurations}. There are two sets of configurations, the configurations around active nodes, $A$, and the ones around passive nodes, $P$.
+Since each neighborhood can only see a vertex and a number of edges, we can simply list all multisets of edge colors allowed. They are called \emph{configurations} and are denoted with square brackets in this thesis. There are two sets of configurations, the configurations around active nodes, $A$, and the ones around passive nodes, $P$.
 
 An RE problem can be represented as sets $A$ and $P$. The symbols in the configurations are from an alphabet $\Sigma$.
 
 \subsection{Conversion from LCL}
 
-I will now show how to represent sinkless orientation for RE. Each vertex in the original graph corresponds to an active vertex in the RE graph. Edges correspond to passive vertices. We can describe the directions of edges by coloring them with I (for incoming) on O (for outgoing).
+I will now show how to represent sinkless orientation for RE. Each vertex in the original graph corresponds to an active vertex in the RE graph. Edges correspond to passive vertices. We can describe the directions of edges by coloring the RE graph's edges with I (for incoming) and O (for outgoing).
 
 \begin{figure}[h]
 \centering
@@ -217,18 +215,22 @@ I will now show how to represent sinkless orientation for RE. Each vertex in the
     coordinate[near start] (tail)
     coordinate[near end] (head);
 
+    \ifnum\a=240
+      \node [passive, label=right:{passive}] at ($ (\a+18:1.5) + (center') $) (P) {};
+      \node [active, label=right:{active}] at ($ (\a+18:3) + (center') $) (A') {};
+    \fi
     \node [passive] at ($ (\a+18:1.5) + (center') $) (P) {};
     \node [active] at ($ (\a+18:3) + (center') $) (A') {};
-    \draw
-    (center') -- (P) node[midway, fill=white] (CtoP) {\cl}
-    (P) -- (A') node[midway, fill=white] (PtoA) {\el};
+
+    \draw (center') -- (P) node[midway, sloped, below] (CtoP) {\cl};
+    \draw (P) -- (A') node[midway, sloped, below] (PtoA) {\el};
     \draw [dotted] \foreach \da in {-60, 60} {
       (A) -- ($ (A) + (\a+18+\da:0.8) $)
       (A') -- ($ (A') + (\a+18+\da:1) $)
     };
   };
-  \draw [dashed, stealth-stealth, shorten <=0.6ex] (tail) to[bend left=10] (CtoP);
-  \draw [dashed, stealth-stealth, shorten <=0.5ex] (head) to[bend left=10] (PtoA);
+  \draw [dashed, stealth-stealth, shorten <=0.6ex, shorten >=0.5ex] (tail) to[bend left=10] (CtoP);
+  \draw [dashed, stealth-stealth, shorten <=0.5ex, shorten >=0.5ex] (head) to[bend left=10] (PtoA);
 \end{tikzpicture}
 \caption{Correspondence between solutions in round elimination graph and original graph}
 \end{figure}
@@ -247,7 +249,7 @@ TODO generalizing the conversion
 
 \subsection{The port numbering model}
 
-Round Elimination is an algorithm that transform an RE problem. That transformation has interpretations in many models of distributed computing.
+Round Elimination is an algorithm that transforms an RE problem. That transformation has interpretations in many models of distributed computing.
 
 TODO fold this into the RE section and write port numbering proof.
 
