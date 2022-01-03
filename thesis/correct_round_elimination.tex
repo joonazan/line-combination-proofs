@@ -362,7 +362,7 @@ It can be shown that an $r$-round solvable problem is a problem where a correct 
 
 \section{Coq Primer}
 
-Before discussing my novel round elimination algorithm, I need to explain the basics of Coq because I will show the lemmas concerning its correctness as written in Coq's Vernacular. I will also give informal proofs. The actual proofs involve many boring details, which this paper does not cover. However, the Proving section will show examples of the most important proof techniques used. The full source code can be found in the project's repository~\cite{source_code}.
+Before discussing the new round elimination algorithm, I need to explain the basics of Coq because I will show the lemmas concerning its correctness as written in Coq's Vernacular. I will also give informal proofs. The actual proofs involve many boring details, which this thesis does not cover. However, the Proving section will show examples of the most important proof techniques used. The full source code can be found in the project's repository~\cite{source_code}.
 
 \begin{listing}[h]
 \begin{minted}{Coq}
@@ -592,33 +592,23 @@ Definition strictly_dominated (a b : line) := strictly_dominates b a.
 Lemma strictly_dominated_wf : well_founded strictly_dominated.
 \end{minted}
 
-Proof: To show well-foundedness, one has to show that one always arrives a a smallest element by repeatedly picking any smaller element.
-
-Define the weight of a line as the sum of its sets' cardinalities. Obviously no line can have a negative weight. If a line $a$ strictly dominates line $b$, then the weight of $b$ is smaller than the weight of $a$, since all of $b$'s sets are subsets of $a$'s and one is a strict subset.
-
-There cannot be an infinite descending chain, as weight decreases while descending and weight is a natural number. QED.
-
 \section{Performance}
 
 Maximization is the most expensive part of the original Round Eliminator's algorithm. Maximization via line combination is orders of magnitude faster in practice and is resistant to some pathological inputs but it remains the most computationally expensive part. % TODO add to abstract maybe?
+
+Evaluating the performance of maximization is difficult, as its output can be exponentially larger than its input. However, there is no known algorithm for checking maximality that is more efficient than performing maximization. Therefore I will compare different algorithms' performance on the decision problem of finding out whether a set of lines is maximal or not.
 
 \subsection{Prior art}
 
 The maximization algorithm previously used in Round Eliminator computes the set of invalid configurations by filtering all $|\Sigma|^{\Delta}$ possible configurations.
 
-If every configuration was allowed, the maximal form would simply be a line that generates every configuration. The old algorithm starts with a list containing just that line. It then goes through all the invalid configurations, replacing every line in its list with narrowed down lines that do not generate that configuration.
+If every configuration was allowed, the maximal form could be expressed as a line that generates every configuration. The old algorithm starts with a list containing just that line. It then goes through all the invalid configurations, replacing every line in its list with narrowed down lines that do not generate that configuration.
 
 The algorithm considers all permutations separately, so it produces $\Delta!$ copies of the output lines before deduplication.
 
 % TODO continue this
 
-Jukka Suomela pointed out an adversarial input that defeats this algorithm. Just concatenate multiple copies of an input, renamed so that each has its own disjoint subset of the alphabet. Then the number of valid lines grows linearly with the size of the input but the number of invalid configurations grows to the power of the degree.
-
-\subsection{Output size}
-
-If maximization could arbitrarily increase the number of lines, talking about worst-case performance would be of little practical use since any algorithmic inefficiency would be overshadowed by the size of the output. Thus it makes sense to find an upper bound for the size of the output.
-
-The new lines found do not increase the number of configurations covered.
+There is an adversarial input that defeats this algorithm. Just concatenate multiple copies of an input, renamed so that each has its own disjoint subset of the alphabet. Then the number of valid lines grows linearly with the size of the input but the number of possible configurations grows to the power of the degree.
 
 \subsection{Line combination}
 
