@@ -108,6 +108,14 @@ RE         & round elimination
 \clearpage
 \section{History of computer-aided mathematics}
 
+There are proof systems that simply check the rules of a logic.
+
+Coq is more complicated than that. It is a full programming language whose type checking can be interpreted as proof verification. This complexity makes it unsuitable for ATPs as-is but it enables \emph{reflection}. (cite this? http://adam.chlipala.net/cpdt/html/Reflection.html)
+
+Suppose we need to show that problem $\Pi_1$ is one round faster than $\Pi_0$. Instead of showing that directly, which would be tedious, we can instead run an implementation of round elimination written in Coq on $\Pi_0$ to obtain $\Pi_1$ and then invoke the proof that that implementation works as intended.
+
+Simpler arithmetic example? Expand and sort polynomial, then compare for equality. Write proof that that is the same as equality.
+
 \section{Graph Theory}
 
 \section{Locally Checkable Labeling}
