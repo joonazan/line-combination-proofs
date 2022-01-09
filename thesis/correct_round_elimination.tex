@@ -608,24 +608,33 @@ Evaluating the performance of maximization is difficult, as its output can be ex
 
 \subsection{Prior art}
 
-The maximization algorithm previously used in Round Eliminator computes the set of invalid configurations by filtering all $|\Sigma|^{\Delta}$ possible configurations.
+The maximization algorithm previously used in Round Eliminator relies on a procedure that transforms a maximal form into a maximal form with one configuration removed. If every configuration was valid, the maximal form would be a single line that generates every configuration, so that line is the starting point. Then each invalid configuration is removed one by one.
 
-If every configuration was allowed, the maximal form could be expressed as a line that generates every configuration. The old algorithm starts with a list containing just that line. It then goes through all the invalid configurations, replacing every line in its list with narrowed down lines that do not generate that configuration.
+The algorithm sees all permutations of a line as separate lines and deduplicates only at the end. I will refer to them as lines and configurations in this description even though I mean their ordered counterparts.
 
-The algorithm considers all permutations separately, so it produces $\Delta!$ copies of the output lines before deduplication.
+To remove an invalid configuration from a line, the line is split into $\Delta$ different versions that cannot produce the invalid configuration because one of the symbols in the configuration has been removed from each.
 
-% TODO continue this
+The algorithm computes the set of invalid configurations by filtering all $|\Sigma|^{\Delta}$ possible configurations. It produces $\Delta!$ permutations of the output lines before the removal of permutations.
+
+After removing each configuration, dominated lines are discarded with an $O(\Delta n^2)$ pass.
+
+It is unclear how exactly the size of the maximal form develops, so the average number of lines is unknown. Assuming that the number of lines grows linearly, the time complexity of checking maximality is $O(|\Sigma|^{\Delta}{(n\Delta!)}^2)$.
 
 There is an adversarial input that defeats this algorithm. Just concatenate multiple copies of an input, renamed so that each has its own disjoint subset of the alphabet. Then the number of valid lines grows linearly with the size of the input but the number of possible configurations grows to the power of the degree.
 
 \subsection{Line combination}
 
-The new algorithm's runtime does not depend on the size of the alphabet.
+To check maximality with the new algorithm, one has to combine every pair of lines in every possible way and compare the results to the original lines.
 
-is approximately $O(n^{3}\Delta!)$.
+The lines can be combined in $n^2\Delta!$ different ways. However, most of those ways result in lines that can be discarded because they contain an empty set or because they are dominated by the original lines or some other combination. Computing the combinations is feasible even for large $\Delta$ when the lines contain many duplicated sets because in that case the order of the duplicated elements has no effect on the outcome. This seems to happen often in practice. However, it is an open question if it is possible to design an algoritm that does not have a factorial worst case.
 
-The earlier algorithm computed all permutations of the maximal lines making the factorial unavoidable. It can be avoided in the new algorithm by using a smarter way to generate all combinations of two lines than presented here.
+Comparing two lines can be done by building a bipartite graph where each bipartition represents one of the lines and connecting one side's sets to every set on the other side that is included in them. If there is a perfect matching, one line dominates the other. Bipartite perfect matching can be solved in $O(\Delta^{2.5})$ via the Hopcroft-Karp algorithm. In practice it seems that a backtracking search can be faster but that could be asymptotically worse.
 
+The resulting time complexity is $O(n^{3}\Delta!\Delta^{2.5})$. Notably, the size of the alphabet has no effect on running time anymore.
+
+The current practical implementations compare new lines against other lines originating from the same two lines before comparing against every line. This is worthwhile based on the assumption that many of the new lines are just inferior versions of the best lines of that batch.
+
+Maintaining a set of dominated lines and checking new lines against that set before doing any comparisons has improved performance by an order of magnitude in practice, which means that at least in the inputs tested, some useless lines are created very many times.
 
 \section{Proving} \label{proving}
 
