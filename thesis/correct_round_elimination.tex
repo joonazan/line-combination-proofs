@@ -20,6 +20,9 @@
 \AtBeginEnvironment{minted}{\dontdofcolorbox}
 \def\dontdofcolorbox{\renewcommand\fcolorbox[4][]{##4}}
 
+\usepackage{graphicx}
+\graphicspath{{./images/}}
+
 \degreeprogram{Computer, Communication and Information Sciences}
 \major{Computer Science}
 \code{SCI3042}
@@ -112,9 +115,7 @@ TODO This will maybe be just part of the introduction?
 
 \section{Locally Checkable Labeling}
 
-TODO cite original paper
-
-Locally checkable labeling (LCL) is a family of graph problems in which one has to assign colors to edges or vertices, satisfying some locally checkable condition.
+Locally checkable labeling (LCL) is a family of graph problems in which one has to assign colors to edges or vertices, satisfying some locally checkable condition.~\cite{LCL}
 
 Locally checkable means that a solution can be checked by checking fixed size neighborhoods. For example, to verify that vertices are properly colored, one just has to look at the neighbors of each vertex and check that no neighbor has the same color.
 
@@ -535,6 +536,7 @@ The current practical implementations compare new lines against other lines orig
 
 Maintaining a set of dominated lines and checking new lines against that set before doing any comparisons has improved performance by an order of magnitude in practice, which means that at least in the inputs tested, some useless lines are created very many times.
 
+
 \section{Mechanized proof}\label{mechproof}
 
 I have formalized the proof presented in section~\ref{nlproof} in Coq. The formalization then continues with an implementation of maximization and a proof that that implementation works.
@@ -548,16 +550,46 @@ Theorem maximize_works : ∀ x, x \in maximized <-> maximal x.
 \caption{The final theorem that states that a line is in the result of maximization if and only if it is maximal.}
 \end{listing}
 
-The actual proofs involve many boring details, which this thesis does not cover. However, I will show examples of the most important proof techniques used. The full source code can be found in the project's repository~\cite{source_code}.
+The proofs involve many boring details, which this thesis does not cover. However, I will show examples of the most important proof techniques used. The full source code can be found in the project's repository~\cite{source_code}.
 
 \subsection{Why Coq}
-There are proof systems that simply check the rules of a logic.
 
-Coq is more complicated than that. It is a full programming language whose type checking can be interpreted as proof verification. This complexity makes it unsuitable for ATPs as-is but it enables \emph{reflection}. (cite this? http://adam.chlipala.net/cpdt/html/Reflection.html)
+When I started this project, I chose Coq simply because it is very mature and I knew it was capable of this kind of task. I now know that type theory based proof assistants like Coq are especially suited to this kind of task because they are capable of \emph{reflection}.
 
-Suppose we need to show that problem $\Pi_1$ is one round faster than $\Pi_0$. Instead of showing that directly, which would be tedious, we can instead run an implementation of round elimination written in Coq on $\Pi_0$ to obtain $\Pi_1$ and then invoke the proof that that implementation works as intended.
+Reflection means that one is allowed to prove something by writing a program that checks it, proving that program correct and then using the program in a proof. The key thing that enables reflection in Coq is that its language Gallina is both a programming language and a logic at the same time.
 
-Simpler arithmetic example? Expand and sort polynomial, then compare for equality. Write proof that that is the same as equality.
+On the flip side, because of Coq's complexity, there are only relatively weak automatic theorem provers for it.
+
+Certified Programming with Dependent Types~\cite{CPDT} has a chapter that goes through progressively more complicated uses of reflection.
+
+\subsubsection{How round elimination benefits from reflection}
+
+Distributed algorithms researchers have found lower bounds for the time complexity of problems by making the problem easier by allowing strictly more configurations, performing round elimination on the result, then making it easier again, etc.\ until they arrive at some well-known problem. It can then be argued that the first problem must be at least as hard as the known problem. (TODO cite a nice example. Maybe the case where they managed to synthesize an algorithm while doing this.) Similarly, upper bounds can be proved by making problems harder.
+
+The Round Eliminator software has tools that can be used to quickly perform a series of simplification and round elimination steps. Each one of the tools produces some new problem that has some relationship to the current problem: easier, harder, exactly as hard or exactly one round easier.
+
+\begin{figure}[h]
+  \centering
+  \includegraphics[scale=0.5]{retools}
+  \caption{The tools menu of Round Eliminator}
+\end{figure}
+
+Each of the tools could be written as a function in Coq, along with proofs of the relationship of their input and output. With a bit of plumbing, these could be used to write reflective proofs like the following:
+
+\begin{minted}{Coq}
+Lemma a_harder_than_b : time(A) >= time(B).
+  move: add_line [[C, D], [D, E, F]] A => [A' A_harder_than_A'].
+  move: speedup A' => [B2 A'_harder_than_B2].
+  eauto using time_gt_trans.
+\end{minted}
+
+These could even be automatically generated by Round Eliminator. In cases where Round Eliminator has performed an expensive brute force search, the result of the search can be embedded into the Coq proof in order to avoid running the slower Coq implementations of the tools a lot.
+
+As part of this thesis I have only verified the difficult part of round elimination, maximization. However, I believe that verifying the other tools in Round Eliminator is trivial after formalizing the hardness of problems in some way.
+
+To verify a program in a proof assistant that does not support programming, one has to generate lemmas from the source code that is being verified. This is how the seL4 microkernel~\cite{sel4} has been developed, for example. It makes sense in that context because high performance and low level access to hardware is vital when implementing an operating system.
+
+Besides, round elimination is commonly used as a subroutine in proofs, while operating systems are not. Embedding round elimination in Coq makes it possible to prove whole reasoning chains. A verified implementation of round elimination by itself doesn't prevent users from giving it the wrong input.
 
 \subsection{Coq Primer (This info will be spread throughout the discussion of the proof)}
 
