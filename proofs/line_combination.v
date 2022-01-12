@@ -571,11 +571,12 @@ apply measure_wf; red => a. destruct a.
 eauto using maximize_progress_wf'.
 Qed.
 
-Definition maximize := maximize' [::] input.
+Definition maximized := maximize' [::] input.
 
 Definition maximal x := valid x ∧ ∀ y, valid y -> ~ x ⊂ y.
 
-Theorem maximize_works : ∀ x, x \in maximize <-> maximal x.
-Abort.
+Theorem maximize_works : ∀ x, x \in maximized <-> maximal x.
+split; rewrite /maximized.
+rewrite /maximize'.
 
 End Lines.
