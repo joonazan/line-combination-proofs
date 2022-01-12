@@ -108,15 +108,7 @@ RE         & round elimination
 \clearpage
 \section{History of computer-aided mathematics}
 
-There are proof systems that simply check the rules of a logic.
-
-Coq is more complicated than that. It is a full programming language whose type checking can be interpreted as proof verification. This complexity makes it unsuitable for ATPs as-is but it enables \emph{reflection}. (cite this? http://adam.chlipala.net/cpdt/html/Reflection.html)
-
-Suppose we need to show that problem $\Pi_1$ is one round faster than $\Pi_0$. Instead of showing that directly, which would be tedious, we can instead run an implementation of round elimination written in Coq on $\Pi_0$ to obtain $\Pi_1$ and then invoke the proof that that implementation works as intended.
-
-Simpler arithmetic example? Expand and sort polynomial, then compare for equality. Write proof that that is the same as equality.
-
-\section{Graph Theory}
+TODO This will maybe be just part of the introduction?
 
 \section{Locally Checkable Labeling}
 
@@ -368,26 +360,9 @@ A problem for which there exists an algorithm that gives the correct output afte
 
 It can be shown that an $r$-round solvable problem is a problem where a correct output can be computed from the neighborhood of vertices up to $r$ edges away.
 
-\section{Coq Primer}
+\section{Maximization via line combination}\label{nlproof}
 
-Before discussing the new round elimination algorithm, I need to explain the basics of Coq because I will show the lemmas concerning its correctness as written in Coq's Vernacular. I will also give informal proofs. The actual proofs involve many boring details, which this thesis does not cover. However, the Proving section will show examples of the most important proof techniques used. The full source code can be found in the project's repository~\cite{source_code}.
-
-\begin{listing}[h]
-\begin{minted}{Coq}
-Lemma tnth_zip n S T (a : n.-tuple T) (b : n.-tuple S) i :
-  tnth (zip_tuple a b) i = (tnth a i, tnth b i).
-\end{minted}
-\caption{A very simple utility lemma which states that zipping two arrays of the same length and taking the $i$th item produces a tuple with the $i$th item of the first array and the $i$th item of the second list.}
-\end{listing}
-
-Lemmas in Coq are types. Constructing any value of type T proves the lemma T.
-
-You are allowed to use values in types in order to make talking about computation convenient. This is called dependent types. Coq solves this with cumulative universes.
-
-
-\section{Maximization via line combination}
-
-In this section I will present a maximization algorithm based on combining lines and prove its correctness. In a later section, I will present the corresponding Coq lemmas. Section \ref{proving} contains information on how the mechanized proofs were developed.
+In this section I will present a maximization algorithm based on combining lines and prove its correctness. In section~\ref{mechproof}, I will present the corresponding Coq lemmas.
 
 \subsection{Combining lines}
 
@@ -522,9 +497,85 @@ Theorem \ref{justtwo} gives an efficient process for checking maximality: if all
 
 A trivial extension yields an algorithm for finding the maximal form: The input lines start in a todo set and there is an empty done set. As long as there are lines in the todo set, take one of them. If it is dominated by some other line in either set, discard it. Otherwise insert it into the done set and insert all combinations of it and lines in the done set into the todo set.
 
-\section{Coq proof explanation TODO}
+The mechanized proof covers this algorithm as well, as you'll see in section~\ref{mechproof}.
 
-In this section I will present a maximization algorithm based on combining lines and the lemmas that I used to prove its correctness. I will show the most important lemmas as they are written in Coq but present the proofs informally. The Proving section contains information on how the mechanized proofs were developed.
+\section{Performance}
+
+Maximization is the most expensive part of the original Round Eliminator's algorithm. Maximization via line combination is orders of magnitude faster in practice and is resistant to some pathological inputs but it remains the most computationally expensive part. % TODO add to abstract maybe?
+
+Evaluating the performance of maximization is difficult, as its output can be exponentially larger than its input. However, there is no known algorithm for checking maximality that is more efficient than performing maximization. Therefore I will compare different algorithms' performance on the decision problem of finding out whether a set of lines is maximal or not.
+
+\subsection{Prior art}
+
+The maximization algorithm previously used in Round Eliminator relies on a procedure that transforms a maximal form into a maximal form with one configuration removed. If every configuration was valid, the maximal form would be a single line that generates every configuration, so that line is the starting point. Then each invalid configuration is removed one by one.
+
+The algorithm sees all permutations of a line as separate lines and deduplicates only at the end. I will refer to them as lines and configurations in this description even though I mean their ordered counterparts.
+
+To remove an invalid configuration from a line, the line is split into $\Delta$ different versions that cannot produce the invalid configuration because one of the symbols in the configuration has been removed from each.
+
+The algorithm computes the set of invalid configurations by filtering all $|\Sigma|^{\Delta}$ possible configurations. It produces $\Delta!$ permutations of the output lines before the removal of permutations.
+
+After removing each configuration, dominated lines are discarded with an $O(\Delta n^2)$ pass.
+
+It is unclear how exactly the size of the maximal form develops, so the average number of lines is unknown. Assuming that the number of lines grows linearly, the time complexity of checking maximality is $O(|\Sigma|^{\Delta}{(n\Delta!)}^2)$.
+
+There is an adversarial input that defeats this algorithm. Just concatenate multiple copies of an input, renamed so that each has its own disjoint subset of the alphabet. Then the number of valid lines grows linearly with the size of the input but the number of possible configurations grows to the power of the degree.
+
+\subsection{Line combination}
+
+To check maximality with the new algorithm, one has to combine every pair of lines in every possible way and compare the results to the original lines.
+
+The lines can be combined in $n^2\Delta!$ different ways. However, most of those ways result in lines that can be discarded because they contain an empty set or because they are dominated by the original lines or some other combination. Computing the combinations is feasible even for large $\Delta$ when the lines contain many duplicated sets because in that case the order of the duplicated elements has no effect on the outcome. This seems to happen often in practice. However, it is an open question if it is possible to design an algoritm that does not have a factorial worst case.
+
+Comparing two lines can be done by building a bipartite graph where each bipartition represents one of the lines and connecting one side's sets to every set on the other side that is included in them. If there is a perfect matching, one line dominates the other. Bipartite perfect matching can be solved in $O(\Delta^{2.5})$ via the Hopcroft-Karp algorithm. In practice it seems that a backtracking search can be faster but that could be asymptotically worse.
+
+The resulting time complexity is $O(n^{3}\Delta!\Delta^{2.5})$. Notably, the size of the alphabet has no effect on running time anymore.
+
+The current practical implementations compare new lines against other lines originating from the same two lines before comparing against every line. This is worthwhile based on the assumption that many of the new lines are just inferior versions of the best lines of that batch.
+
+Maintaining a set of dominated lines and checking new lines against that set before doing any comparisons has improved performance by an order of magnitude in practice, which means that at least in the inputs tested, some useless lines are created very many times.
+
+\section{Mechanized proof}\label{mechproof}
+
+I have formalized the proof presented in section~\ref{nlproof} in Coq. The formalization then continues with an implementation of maximization and a proof that that implementation works.
+
+\begin{listing}[h]
+\begin{minted}{Coq}
+Definition maximal x := valid x ∧ ∀ y, valid y -> ~ x ⊂ y.
+
+Theorem maximize_works : ∀ x, x \in maximized <-> maximal x.
+\end{minted}
+\caption{The final theorem that states that a line is in the result of maximization if and only if it is maximal.}
+\end{listing}
+
+The actual proofs involve many boring details, which this thesis does not cover. However, I will show examples of the most important proof techniques used. The full source code can be found in the project's repository~\cite{source_code}.
+
+\subsection{Why Coq}
+There are proof systems that simply check the rules of a logic.
+
+Coq is more complicated than that. It is a full programming language whose type checking can be interpreted as proof verification. This complexity makes it unsuitable for ATPs as-is but it enables \emph{reflection}. (cite this? http://adam.chlipala.net/cpdt/html/Reflection.html)
+
+Suppose we need to show that problem $\Pi_1$ is one round faster than $\Pi_0$. Instead of showing that directly, which would be tedious, we can instead run an implementation of round elimination written in Coq on $\Pi_0$ to obtain $\Pi_1$ and then invoke the proof that that implementation works as intended.
+
+Simpler arithmetic example? Expand and sort polynomial, then compare for equality. Write proof that that is the same as equality.
+
+\subsection{Coq Primer (This info will be spread throughout the discussion of the proof)}
+
+\begin{listing}[h]
+\begin{minted}{Coq}
+Lemma tnth_zip n S T (a : n.-tuple T) (b : n.-tuple S) i :
+  tnth (zip_tuple a b) i = (tnth a i, tnth b i).
+\end{minted}
+\caption{A very simple utility lemma which states that zipping two arrays of the same length and taking the $i$th item produces a tuple with the $i$th item of the first array and the $i$th item of the second list.}
+\end{listing}
+
+Lemmas in Coq are types. Constructing any value of type T proves the lemma T.
+
+You are allowed to use values in types in order to make talking about computation convenient. This is called dependent types. Coq solves this with cumulative universes.
+
+In Coq it is customary not to assume the law of excluded middle $\forall a : a \lor \lnot a$. This has little effect on the proof at hand, as it is about finite objects. For those a = b is equivalent to a == b and the latter is always true or false, as it can be computed.
+
+\subsection{Lemmas and definitions}
 
 \newcommand\icoq[1]{\mintinline{Coq}{#1}}
 
@@ -599,48 +650,6 @@ Definition strictly_dominated (a b : line) := strictly_dominates b a.
 
 Lemma strictly_dominated_wf : well_founded strictly_dominated.
 \end{minted}
-
-\section{Performance}
-
-Maximization is the most expensive part of the original Round Eliminator's algorithm. Maximization via line combination is orders of magnitude faster in practice and is resistant to some pathological inputs but it remains the most computationally expensive part. % TODO add to abstract maybe?
-
-Evaluating the performance of maximization is difficult, as its output can be exponentially larger than its input. However, there is no known algorithm for checking maximality that is more efficient than performing maximization. Therefore I will compare different algorithms' performance on the decision problem of finding out whether a set of lines is maximal or not.
-
-\subsection{Prior art}
-
-The maximization algorithm previously used in Round Eliminator relies on a procedure that transforms a maximal form into a maximal form with one configuration removed. If every configuration was valid, the maximal form would be a single line that generates every configuration, so that line is the starting point. Then each invalid configuration is removed one by one.
-
-The algorithm sees all permutations of a line as separate lines and deduplicates only at the end. I will refer to them as lines and configurations in this description even though I mean their ordered counterparts.
-
-To remove an invalid configuration from a line, the line is split into $\Delta$ different versions that cannot produce the invalid configuration because one of the symbols in the configuration has been removed from each.
-
-The algorithm computes the set of invalid configurations by filtering all $|\Sigma|^{\Delta}$ possible configurations. It produces $\Delta!$ permutations of the output lines before the removal of permutations.
-
-After removing each configuration, dominated lines are discarded with an $O(\Delta n^2)$ pass.
-
-It is unclear how exactly the size of the maximal form develops, so the average number of lines is unknown. Assuming that the number of lines grows linearly, the time complexity of checking maximality is $O(|\Sigma|^{\Delta}{(n\Delta!)}^2)$.
-
-There is an adversarial input that defeats this algorithm. Just concatenate multiple copies of an input, renamed so that each has its own disjoint subset of the alphabet. Then the number of valid lines grows linearly with the size of the input but the number of possible configurations grows to the power of the degree.
-
-\subsection{Line combination}
-
-To check maximality with the new algorithm, one has to combine every pair of lines in every possible way and compare the results to the original lines.
-
-The lines can be combined in $n^2\Delta!$ different ways. However, most of those ways result in lines that can be discarded because they contain an empty set or because they are dominated by the original lines or some other combination. Computing the combinations is feasible even for large $\Delta$ when the lines contain many duplicated sets because in that case the order of the duplicated elements has no effect on the outcome. This seems to happen often in practice. However, it is an open question if it is possible to design an algoritm that does not have a factorial worst case.
-
-Comparing two lines can be done by building a bipartite graph where each bipartition represents one of the lines and connecting one side's sets to every set on the other side that is included in them. If there is a perfect matching, one line dominates the other. Bipartite perfect matching can be solved in $O(\Delta^{2.5})$ via the Hopcroft-Karp algorithm. In practice it seems that a backtracking search can be faster but that could be asymptotically worse.
-
-The resulting time complexity is $O(n^{3}\Delta!\Delta^{2.5})$. Notably, the size of the alphabet has no effect on running time anymore.
-
-The current practical implementations compare new lines against other lines originating from the same two lines before comparing against every line. This is worthwhile based on the assumption that many of the new lines are just inferior versions of the best lines of that batch.
-
-Maintaining a set of dominated lines and checking new lines against that set before doing any comparisons has improved performance by an order of magnitude in practice, which means that at least in the inputs tested, some useless lines are created very many times.
-
-\section{Proving} \label{proving}
-
-\subsection{Classical vs Intuitionistic Logic}
-
-In Coq it is customary not to assume the law of excluded middle $\forall a : a \lor \lnot a$. This has little effect on the proof at hand, as it is about finite objects. For those a = b is equivalent to a == b and the latter is always true or false, as it can be computed.
 
 \clearpage
 \thesisbibliography{}
