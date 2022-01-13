@@ -289,9 +289,66 @@ The configurations of $\Pi_1$ have the exact same shape as lines of $\Pi_0$: mul
 The definition of RE from Distributed Algorithms 2020~\cite{DA2020} rephrased in terms of lines:
 \begin{itemize}
   \item $\Sigma_1$ is the powerset of $\Sigma_0$ minus the empty set.
-  \item $A_{1}$ consists of all lines that only generate configurations present in $P_{0}$.
-  \item $P_1$ consists of all lines that generate at least one configuration from $A_0$.
+  \item $A_{1}$ consists of all configurations that only generate configurations present in $P_{0}$.
+  \item $P_1$ consists of all configurations that generate at least one configuration from $A_0$.
 \end{itemize}
+
+\subsection{Interpretation in the port numbering model}
+
+In this section I'll show that the round elimination produces a problem that can be solved exactly one round faster than its predecessor in the port numbering model.
+
+\subsubsection{The port numbering model}
+
+In the port numbering model, each vertex runs the same program and must produce its own part of the solution. Each vertex has numbered ports through which it communicates with its neighbors.
+
+Computation proceeds in a series of rounds. In each round, vertices send a message to each of their neighbors. Then all vertices receive the messages simultaneously. Finally, each vertex can either output its part of the solution and stop, or continue to the next round. Before, after and between these steps, the nodes get to compute as much as they want. This process repeats until all vertices have chosen their output.
+
+A problem for which there exists an algorithm that gives the correct output after $r$ rounds is called $r$-round solvable.
+
+\begin{lemma}
+  A problem is $r$-round solvable in the port numbering model if and only if each vertex can produce a correct output by looking at its $r$-neighborhood.
+\end{lemma}
+Here $r$-neighborhood refers to the subgraph containing vertices and edges at most $r$ edges away.
+\begin{proof}
+  The $r$-neighborhood is sufficient, as information from further away cannot be seen in $r$ rounds. The $r$-neighborhood can be constructed in $r$ rounds, so it isn't too much information either. TODO how exactly
+\end{proof}
+
+\subsubsection{Round elimination in the port numbering model}
+
+Suppose there is an algorithm $G_0$ that looks at an $r$-neighborhood and solves the round elimination problem $\Pi_0$. Let us construct an algorithm $G_1$ that looks at an $(r-1)$-neighborhood in a graph that is the same as the graph $G_0$ operates on but the active nodes are passive and vice versa.
+
+Suppose that $G_1$ is run on some vertex $v$. For each neighboring vertex $n$, $G_1$ computes all possible $r$-neighborhoods centered around $n$. $G_1$ then runs $G_0$ on each of the neighborhoods, noting the color $G_0$ assigns to the edge $\{v, n\}$. $G_1$ assigns the union of all those colors to $\{v, n\}$.
+
+TODO $r > 0$ and $r$ must be small enough that blind spots could all be full size.
+
+\begin{lemma}
+  $G_1$ solves $\Pi_1$, the result of running round elimination on $\Pi_0$.
+\end{lemma}
+\begin{proof}
+  It suffices to show that $G_1$'s solutions satisfy $\Pi_1$'s active and passive side rule.
+
+  All the edge colors surrounding a passive node are computed from the same part of the graph but with different blind spots. Since $G_0$ is run  with all possible values in the blind spots, there is a run where the blind spot has the same values as it does in reality. Thus each edge's set contains the color that $G_0$ would assign to that edge. Because $G_0$ solves $\Pi_0$, $A_0$ must contain a configuration with those colors. Therefore $P_1$ is satisfied, as all the passive nodes' surrounding edges generate a configuration from $A_0$.
+
+  The edges $e_1, e_2, \ldots$ surrounding an active node are computed from neighborhoods whose blind spots are completely disjoint since the graph is a tree. Suppose the edges's colors generate some configuration $[a_1, a_2, \ldots]$ that is not in $P_0$. Then w.l.o.g.\ there exist some values for the blind spots such that $G_0$ colors $e_1$ with $a_1$, $e_2$ with $a_2$, etc. Because the blind spots are disjoint, it is possible to set them all to those specific values at the same time, which results in a graph where $G_0$ colors the edges around a passive node with a set of colors that isn't found in $P_0$ which is a contradiction, as we assumed that $G_0$ solves $\Pi_0$. Thus we know that the colorings of active nodes only generate configurations that are in $P_0$.
+\end{proof}
+
+\begin{lemma}
+  $\Pi_1$ can be solved at least one round faster than $\Pi_0$.
+\end{lemma}
+\begin{proof}
+  Suppose that $G_0$ is the fastest possible algorithm that solves $\Pi_0$. $G_1$ solves $\Pi_1$ one round faster than that.
+\end{proof}
+
+\begin{lemma}
+  $\Pi_1$ can be solved at most one round faster than $\Pi_0$.
+\end{lemma}
+\begin{proof}
+  If there is an algorithm $G_1$ that solves $\Pi_1$ in less than $r-1$ rounds, it is possible to solve $\Pi_0$ in less than $r$ rounds: run $G_1$ on all passive nodes and send the resulting edge colors to the neighboring active nodes. The definition of $P_1$ guarantees that each active node is able to pick a configuration that is in $A_0$ from the edge colors around it. The definition of $A_1$ guarantees that the passive rule is satisfied no matter what color the active nodes pick.
+
+  But we assumed that the fastest algorithm solves $\Pi_0$ in $r$ rounds, so the assumption that $\Pi_1$ can be solved in less than $r-1$ rounds must be false.
+\end{proof}
+
+I have shown that $\Pi_1$ can be solved at least one round faster and at most one round faster than $\Pi_0$, so clearly it can be solved exactly one round faster than $\Pi_0$.
 
 \subsection{Optimizing output size}
 
@@ -312,7 +369,7 @@ Suppose the picture below is part of a solution to $\Pi_{1}$. One can see that \
 
 In that alternative solution \reline{ac~af} has to be in $P_{1}$. \reline{a~af} is in $P_{1}$, so it generates some configuration from $A_{0}$. \reline{ac~af} generates strictly more configurations, so it is in $P_{1}$, too.
 
-As every solution using \reline{x~a} can use \reline{x~ac} instead, \reline{x~a} can be omitted. In general, A can be omitted if A and B can be paired up so that for each pair $(a, b)$ where $a \in A$ and $b \in B$ it holds that $a \subseteq b$.~\cite{DA2020} For any A and B satisfying that criterion I say that B \emph{dominates} A and A is dominated by B.
+As every solution using \reline{x~a} can use \reline{x~ac} instead, \reline{x~a} can be omitted. In general, A can be omitted if A and B can be paired up so that for each pair $(a, b)$ where $a \in A$ and $b \in B$ it holds that $a \subseteq b$.~\cite{DA2020} (TODO write it so that it is clear that this only applies to the active side) For any A and B satisfying that criterion I say that B \emph{dominates} A and A is dominated by B.
 
 \tikzset{
   EdgeStyle/.append style = {->}
@@ -361,15 +418,6 @@ The new passive side is built by replacing every set in $A_0$ with the set of al
 
 Finally, to make the representation more compact, $\Sigma_1$ is converted from subsets of $\Sigma_0$ to ordinals simply by enumerating the symbols.
 
-\subsection{Interpretation in the port numbering model}
-
-In the port numbering model, each vertex runs the same program and must produce its own part of the solution. Each vertex has numbered ports through which it communicates with its neighbors.
-
-Computation work as follows: first, vertices get to compute as much as they need to. Then they send a message to each of their neighbors. All vertices receive the messages simultaneously. This process repeats until all vertices have chosen their output.
-
-A problem for which there exists an algorithm that gives the correct output after $r$ rounds is called $r$-round solvable.
-
-It can be shown that an $r$-round solvable problem is a problem where a correct output can be computed from the neighborhood of vertices up to $r$ edges away.
 
 \section{Maximization via line combination}\label{nlproof}
 
