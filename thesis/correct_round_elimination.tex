@@ -111,9 +111,9 @@ RE         & round elimination
 \clearpage
 \section{Background}
 
-The idea of using proof assistants to verify algorithms used as a part of a proof isn't new.
+The idea of using proof assistants to verify algorithms that are used in proofs isn't new.
 
-The most notable example is Thomas Hales' proof of the Kepler conjecture. A proof consisting of a computer program that solves linear programming problems and hundreds of pages of notes was completed in 1998. After four years of inspecting the proof, a panel of twelve referees announced that they couldn't be completely certain if the computer calculations are correct. This prompted Hales to start the Flyspeck project, which completed a complete formal proof of the Kepler conjecture in 2014.
+The most notable example is Thomas Hales' proof of the Kepler conjecture. A proof consisting of a computer program that solves linear programming problems and hundreds of pages of notes was completed in 1998. After four years of inspecting the proof, a panel of twelve referees announced that they couldn't be completely certain if the computer calculations are correct. That prompted Hales to start the Flyspeck project, which completed a complete formal proof of the Kepler conjecture in 2014.
 
 Pitäisiköhän tästä kertoa enemmän?
 
@@ -295,23 +295,43 @@ The definition of RE from Distributed Algorithms 2020~\cite{DA2020} rephrased in
 
 \subsection{Interpretation in the port numbering model}
 
-In this section I'll show that the round elimination produces a problem that can be solved exactly one round faster than its predecessor in the port numbering model.
+In this section I'll show that the round elimination produces a problem that can be solved exactly one round faster than its predecessor in the port numbering model. The port numbering model is the weakest of a number of of models of distributed computing. The proof in the port numbering model has been used to show that the same property holds in stronger models. (TODO cite an example)
 
 \subsubsection{The port numbering model}
 
-In the port numbering model, each vertex runs the same program and must produce its own part of the solution. Each vertex has numbered ports through which it communicates with its neighbors.
+In the port numbering model, each vertex runs the same program and must produce part of a solution to a problem defined on its graph. The problem need not be locally checkable and the graph does not need to be a tree but this thesis is about round elimination problems, so everything documented here has that shape.
 
 Computation proceeds in a series of rounds. In each round, vertices send a message to each of their neighbors. Then all vertices receive the messages simultaneously. Finally, each vertex can either output its part of the solution and stop, or continue to the next round. Before, after and between these steps, the nodes get to compute as much as they want. This process repeats until all vertices have chosen their output.
 
-A problem for which there exists an algorithm that gives the correct output after $r$ rounds is called $r$-round solvable.
+However, everything stated in the previous paragraphs applies equally well to the LOCAL model for example. The defining characteristic of the port numbering model is that the only thing each vertex knows is that it is connected to its $n$ neighbors via ports numbered $1$ to $n$.
+
+Formally, we can define a graph in the port numbering model as a set of connections between ports.
+\begin{align*}
+  \text{Port} = \text{Vertex} \times \mathbb{N} \\
+  \text{Connection} = \{Port, Port\}
+\end{align*}
+Every port must be connected to only one other port. If a node's port $n$ is connected, ports $1$ to $n-1$ must be connected as well.
+
+An algorithm in the port numbering model can be expressed as three functions.
+\begin{align*}
+  \text{send} &: \Pi_{n : \mathbb{N}}~\text{State} \to \text{Message}^n \\
+  \text{recv} &: \Pi_{n : \mathbb{N}}~\text{Message}^n \to \text{State} \to \text{State} \\
+  \text{result} &: \text{State} \to \text{Output} + 1
+\end{align*}
+The first one computes what messages to send based on the state the node is in; the second how a node's state changes when it receives its neighbors' messages. The first message in the tuple produced by $\text{send}$ is sent to port 1, the second to port 2 etc. Likewise, the first message in the tuple passed into $\text{recv}$ is the one received from port 1. Finally, the function called $\text{result}$ computes a node's output if it has stopped and returns unit otherwise. (The notation $\text{Output} + 1$ means $\text{Output}$ or unit. The one stands for a type that is inhabited by only one value.)
+
+None that $\text{send}$ and $\text{recv}$ may behave differently based on the number of ports. In fact, they have to because $\text{send}$ must produce a tuple of messages of the correct length. The number of ports, $n$ cannot be a normal parameter, as the type of the function depends on its value. For an in-depth discussion of the $\Pi$ notation see Section~\ref{dependent} (Dependent types).
+
+An $r$-round solvable problem is a problem for which there exists an algorithm that gives the correct output after $r$ rounds. It is easier to prove that round elimination works in the port numbering model by adopting a different perspective.
 
 \begin{lemma}
   A problem is $r$-round solvable in the port numbering model if and only if each vertex can produce a correct output by looking at its $r$-neighborhood.
 \end{lemma}
 Here $r$-neighborhood refers to the subgraph containing vertices and edges at most $r$ edges away.
-\begin{proof}
-  The $r$-neighborhood is sufficient, as information from further away cannot be seen in $r$ rounds. The $r$-neighborhood can be constructed in $r$ rounds, so it isn't too much information either. TODO how exactly
-\end{proof}
+
+The $r$-neighborhood is sufficiently large, as information from further away cannot be seen in $r$ rounds. Every vertex can gather its $r$-neighborhood can be constructed in $r$ rounds, so it isn't too much information either.
+
+The gathering process works as follows: In every round, every vertex sends everything it knows to its neighbors. TODO
 
 \subsubsection{Round elimination in the port numbering model}
 
@@ -610,9 +630,55 @@ Theorem maximize_works : ∀ x, x \in maximized <-> maximal x.
 
 The proofs involve many boring details, which this thesis does not cover. However, I will show examples of the most important proof techniques used. The full source code can be found in the project's repository~\cite{source_code}.
 
+\subsection{Dependent types}\label{dependent}
+
+Without dependent types, Coq would be useless. For instance, exists quantifiers in Coq create $\Sigma$-types. Thus it is prudent to study dependent types if one wishes to understand the type theory flavour of proof assistants.
+
+\subsubsection{Type algebra}
+
+Most programmers are familiar with the notation $e : T$ which is read as expression $e$ has type $T$. This is analogous to set membership in set theory if $T$ is seen as the set of all values that $e$ could have. Types are not sets and don't always behave in the same way but the algebraic operations presented next will look very similar for both. Notably, types don't support union and intersection like sets do.
+
+Types that are checked at runtime, found for example in Python are not the same thing. In Python, the same expression can have a different type on different runs; in statically typed languages every expression has just one principal type.
+
+The unit type $1$ is a type with only one inhabitant, commonly denoted as the empty tuple $()$. The type $0$ is a type that no value has. It should not be confused with void in C, which is actually $1$. If a function's return type is $0$, the function must never return, as it is impossible to construct a value of type $0$.
+
+Values of a product type $A \times B$ consist of an $a : A$ followed by a $b : B$. The cartesian product is the corresponding set operation. Many programming languages have a tuple type, which is a pure product type. Record or struct types are common named variants of product types. In most cases, they could be replaced with tuples; the names are only for making them more readable.
+
+Values of a sum type $A + B$ are either of type $A$ or of type $B$. The corresponding set operation is the disjoint union. A disjoint union is a union where the elements are augmented with an index indicating the set from which set they originate. In programming, this is known as tagged union. Enumerations are the simplest example; booleans could be written $1 + 1$, though it is more concise to call them $2$. Optionals found in Rust or Scala among others, are of the form $T + 1$. Structurally typed unions, an intermediate between C's wildly unsafe unions and tagged unions is found in gradually typed languages like TypeScript and in the joke language IntercalScript~\cite{ICS}.
+
+Knowing this much type algebra is sufficient to understand why the two kinds of dependent types are called $\Pi$ and $\Sigma$-types but I'll go on to show that types equipped with the previously defined sum and product form a semiring to highlight that there truly is an algebra of types.
+
+\begin{theorem}
+  The operations $+$ and $\times$ form a semiring on the isomorphism classes of types.
+\end{theorem}
+
+\begin{proof}
+  It is clear that $+$ is associative and commutative. Its neutral element is $0$; a variant holding zero will never be constructed, so an added $0$ does nothing. Also note that a tagged union with zero variants cannot be constructed so it is $0$.
+
+  We can translate between $((a, b), c)$ and $(a, (b, c))$, so $\times$ is associative. Incidentally in Coq $((1, 2), 3)$ is the same as $(1, 2, 3)$ but $(1, (2, 3))$ has a different type. The neutral element of $\times$ is $1$, as it doesn't add any information, like struct padding in C.
+
+  Distributivity: $A \times (B + C) = (A \times B) + (A \times C)$. It is clear that either type could be used with only surface-level changes to program code. As discussed earlier, $0$ is impossible to construct, so a tuple containing it is, too: $A \times 0 = 0$.
+\end{proof}
+
+All types with the same number of inhabitants are isomorphic, so instead of the long proof one could just have stated that $|A + B| = |A| + |B|$ and $|A \times B| = |A||B|$. With that in mind it is easy to see that the arrow $\to$ in function types corresponds to exponentiation; a function is just a table of outputs with an entry for each input. $|A -> B| = |B|^{|A|}$.
+
+Inductive types form interesting equations, for example
+\begin{align*}
+  \text{List} &= 1 + (A \times A) + (A \times A \times A) + \ldots
+\end{align*}
+is a solution to
+\begin{align*}
+  \text{List} &= (A \times \text{List}) + 1
+\end{align*}
+Conor McBride~\cite{typeDerivative} has even shown that partial derivatives of types can be useful.
+
+\subsubsection{Dependent functions}
+
+pi types are arrays of values
+
 \subsection{Why Coq}
 
-When I started this project, I chose Coq simply because it is very mature and I knew it was capable of this kind of task. I now know that type theory based proof assistants like Coq are especially suited to this kind of task because they are capable of \emph{reflection}.
+When I started this project, I chose Coq simply because it is very mature and I knew it to be powerful enough. I now know that type theory based proof assistants like Coq are especially suited to this kind of task because they are capable of \emph{reflection}.
 
 Reflection means that one is allowed to prove something by writing a program that checks it, proving that program correct and then using the program in a proof. The key thing that enables reflection in Coq is that its language Gallina is both a programming language and a logic at the same time.
 
@@ -645,7 +711,7 @@ These could even be automatically generated by Round Eliminator. In cases where 
 
 As part of this thesis I have only verified the difficult part of round elimination, maximization. However, I believe that verifying the other tools in Round Eliminator is trivial after formalizing the hardness of problems in some way.
 
-To verify a program in a proof assistant that does not support programming, one has to generate lemmas from the source code that is being verified. This is how the seL4 microkernel~\cite{sel4} has been developed, for example. It makes sense in that context because high performance and low level access to hardware is vital when implementing an operating system.
+To verify a program in a proof assistant that does not support programming, one has to generate lemmas from the source code that is being verified. The seL4 microkernel~\cite{sel4} has been developed in that fashion, for example. That makes sense because high performance and low level access to hardware is vital when implementing an operating system.
 
 Besides, round elimination is commonly used as a subroutine in proofs, while operating systems are not. Embedding round elimination in Coq makes it possible to prove whole reasoning chains. A verified implementation of round elimination by itself doesn't prevent users from giving it the wrong input.
 
