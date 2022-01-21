@@ -15,7 +15,8 @@
 \usepackage{minted}
 \usemintedstyle{friendly}
 \setmonofont{DejaVu Sans Mono}
-\setminted{fontsize=\footnotesize}
+\setminted{fontsize=\footnotesize, autogobble}
+\newcommand\icoq[1]{\mintinline{Coq}{#1}}
 % horrible hack to hide pygment's complaints about unicode
 \AtBeginEnvironment{minted}{\dontdofcolorbox}
 \def\dontdofcolorbox{\renewcommand\fcolorbox[4][]{##4}}
@@ -676,9 +677,45 @@ is a solution to
 \end{align*}
 Conor McBride~\cite{typeDerivative} has even shown that the partial derivative of a type is a data structure representing an in-progress traversal of it.
 
+A dependently typed programming language can express types that depend on values. Two new constructs, $\Pi$-types and $\Sigma$-types can be used to model all such dependencies.
+
 \subsubsection{Dependent functions}
 
-pi types are arrays of values
+A $\Pi$-type is a type that depends on the value passed in. For example, ordinarily it would be impossible to write a function that sums all entries in a tuple because tuples of different lengths have different types. Using a $\Pi$-type, the function could have the type $\Pi_{n : \mathbb N}~\mathbb N^n \to \mathbb N$.
+
+In dependently typed programming languages, $\Pi$-types typically look like ordinary functions. For example, the previous example can be written in Coq as
+\begin{minted}{Coq}
+Fixpoint ntuple n T : Type :=
+  match n with
+  | 0 => T
+  | S n' => ntuple n' T * T
+  end.
+
+Notation "T ^ n" := (ntuple n T).
+
+Fixpoint sumt (n : nat) (nats : nat^n) :=
+  match n return nat^n -> nat with
+  | 0 => fun x => x
+  | S n => fun a => let (r, x) := a in sumt n r + x
+  end nats.
+\end{minted}
+
+Why is it called a $\Pi$-type? A type $\Pi_{e:T}~D(e)$ could be seen as the image $D[T]$, which contains the value of $D$ for all values that $e$ can take. That image is a product type, and products on numbers are denoted with $\Pi$.
+
+\subsubsection{Dependent pairs}
+
+If the naming of $\Sigma$-types follows the same pattern as the naming of $\Pi$-types, then $E = \Sigma_{e:T}~D(e)$ is the sum of the image $D[T]$. And it is! A value of type $E$ contains just one of the values that $D(e)$ can have. And we know the value of $e$, too, because $+$ is a disjoint union.
+
+In dependently typed programming languages, $\Sigma$-types often look like ordinary data structures. One could add a data structure that stores a tuple of arbitrary length to the previous example:
+\begin{minted}{Coq}
+  Inductive tlist T := make_tlist (n : nat) (l : T^n).
+\end{minted}
+Explicit $\Sigma$-types are called dependent pairs by programmers. The Coq standard library defines syntax for dependent pairs that allows writing \icoq{tlist} as
+\begin{minted}{Coq}
+  Definition tlist2 T := { n & T^n }.
+\end{minted}
+
+Viewed as a proposition, $\Sigma_{x:T}~P(x)$ corresponds to $\exists x : P(x)$.
 
 \subsection{Why Coq}
 
@@ -736,8 +773,6 @@ You are allowed to use values in types in order to make talking about computatio
 In Coq it is customary not to assume the law of excluded middle $\forall a : a \lor \lnot a$. This has little effect on the proof at hand, as it is about finite objects. For those a = b is equivalent to a == b and the latter is always true or false, as it can be computed.
 
 \subsection{Lemmas and definitions}
-
-\newcommand\icoq[1]{\mintinline{Coq}{#1}}
 
 \begin{listing}[h]
 \begin{minted}{Coq}
