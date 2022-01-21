@@ -655,14 +655,18 @@ Knowing this much type algebra is sufficient to understand why the two kinds of 
 \begin{proof}
   It is clear that $+$ is associative and commutative. Its neutral element is $0$; a variant holding zero will never be constructed, so an added $0$ does nothing. Also note that a tagged union with zero variants cannot be constructed so it is $0$.
 
-  We can translate between $((a, b), c)$ and $(a, (b, c))$, so $\times$ is associative. Incidentally in Coq $((1, 2), 3)$ is the same as $(1, 2, 3)$ but $(1, (2, 3))$ has a different type. The neutral element of $\times$ is $1$, as it doesn't add any information, like struct padding in C.
+  We can translate between $((a, b), c)$ and $(a, (b, c))$, so $\times$ is associative. The neutral element of $\times$ is $1$, as it doesn't add any information, like struct padding in C.
 
-  Distributivity: $A \times (B + C) = (A \times B) + (A \times C)$. It is clear that either type could be used with only surface-level changes to program code. As discussed earlier, $0$ is impossible to construct, so a tuple containing it is, too: $A \times 0 = 0$.
+  Distributivity: $A \times (B + C) \cong (A \times B) + (A \times C)$. As discussed earlier, $0$ is impossible to construct, so a tuple containing it is, too: $A \times 0 = 0$.
 \end{proof}
 
-All types with the same number of inhabitants are isomorphic, so instead of the long proof one could just have stated that $|A + B| = |A| + |B|$ and $|A \times B| = |A||B|$. With that in mind it is easy to see that the arrow $\to$ in function types corresponds to exponentiation; a function is just a table of outputs with an entry for each input. $|A -> B| = |B|^{|A|}$.
+I have many times found myself wondering if I should write a data structure $A \times (B + C)$ or $(A \times B) + (A \times C)$ when it isn't entirely clear if $A$ really represents the same thing in both cases. I am not aware of any programming language where isomorphic types can be used interchangeably. Incidentally, in Coq $((1, 2), 3)$ is equal to $(1, 2, 3)$ but $(1, (2, 3))$ has a different type.
 
-Inductive types form interesting equations, for example
+Finding an isomorphism, a one-to-one mapping, is equivalent to showing that two sets have the same cardinality, so finite types can be identified by natural numbers. We already saw the types $0$, $1$ and $2$. For finite types, one could just have stated that $|A + B| = |A| + |B|$ and $|A \times B| = |A||B|$ and used the fact that natural numbers form a semiring. The problem with non-finite types is that depending on the type system, they may not correspond to ordinals or any other well-known kind of integers.
+
+From the cardinality point of view, it is easy to see that the arrow $\to$ in function types corresponds to exponentiation; a function is just a table of outputs with an entry for each input. $|A \to B| = |B|^{|A|}$.
+
+Inductive types have interesting equations, for example
 \begin{align*}
   \text{List} &= 1 + (A \times A) + (A \times A \times A) + \ldots
 \end{align*}
@@ -670,7 +674,7 @@ is a solution to
 \begin{align*}
   \text{List} &= (A \times \text{List}) + 1
 \end{align*}
-Conor McBride~\cite{typeDerivative} has even shown that partial derivatives of types can be useful.
+Conor McBride~\cite{typeDerivative} has even shown that the partial derivative of a type is a data structure representing an in-progress traversal of it.
 
 \subsubsection{Dependent functions}
 
