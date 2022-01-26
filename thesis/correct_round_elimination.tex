@@ -112,9 +112,23 @@ RE         & round elimination
 \clearpage
 \section{Background}
 
-The idea of using proof assistants to verify algorithms that are used in proofs isn't new.
+Today's world is filled with software and most of it doesn't always work as intended.
 
-The most notable example is Thomas Hales' proof of the Kepler conjecture. A proof consisting of a computer program that solves linear programming problems and hundreds of pages of notes was completed in 1998. After four years of inspecting the proof, a panel of twelve referees announced that they couldn't be completely certain if the computer calculations are correct. That prompted Hales to start the Flyspeck project, which completed a complete formal proof of the Kepler conjecture in 2014.
+Testing can be used to verify the correctness of programs that take a small finite amount of different inputs.
+
+Fuzzing means running software against computer-generated inputs. AFL-fuzz~\cite{AFL} is a highly optimized fuzzer that monitors program execution in order to find inputs that trigger previously unexplored execution paths. It has been used to find intricate bugs even in complex software.
+
+One crash that I have found by fuzzing was caused by code that assumed that one can compute the absolute value of any machine integer. However, taking the absolute value of the smallest representable integer (for example -128 for 8-bit integers) lead to undefined behaviour because there is always one negative integer more than there are positive integers in two's complement.
+
+Fuzzing is best at finding crashes but it can be used to find incorrect behaviour by writing a program that crashes whenever an incorrect output is produced. However it is only effective if outputs can be computed and checked very quickly.
+
+SAT-solvers can be used to find cases where algorithms fail on finite but relatively large inputs and even perform an exhaustive search to show that no such cases exist.
+
+Formal proof can establish correctness of algorithms even for arbitrarily large inputs. Proofs are completely unaffected by how expensive it is to compute or check outputs. Unfortunately, theories that are simple to state can have very large proofs.
+
+Perharps the most notable example is Thomas Hales' proof of the Kepler conjecture. The Kepler conjecture states that there is no way of packing spheres more densely than the cannoball packing, in which the spheres are arranged in hexagonally packed layers and those layers are stacked on top of each other. In 1831, Gauss proved a proposition about polynomials that can be used to show that a variant of the aforementioned packing is the densest possible lattice packing of spheres.~\cite{dichteste} However, before Hales' proof the possibility of a denser irregular packing wasn't ruled out.
+
+A proof consisting of a computer program that solves linear programming problems and hundreds of pages of notes was completed in 1998. After four years of inspecting the proof, a panel of twelve referees announced that they couldn't be completely certain if the computer calculations are correct. That prompted Hales to start the Flyspeck project, which completed a complete formal proof of the Kepler conjecture in 2014.
 
 Pitäisiköhän tästä kertoa enemmän?
 
