@@ -630,9 +630,7 @@ The current practical implementations compare new lines against other lines orig
 Maintaining a set of dominated lines and checking new lines against that set before doing any comparisons has improved performance by an order of magnitude in practice, which means that at least in the inputs tested, some useless lines are created very many times.
 
 
-\section{Mechanized proof}\label{mechproof}
-
-I have formalized the proof presented in section~\ref{nlproof} in Coq. The formalization then continues with an implementation of maximization and a proof that that implementation works.
+\section{Type theory as mathematical foundation}
 
 \begin{listing}[h]
 \begin{minted}{Coq}
@@ -786,7 +784,13 @@ You are allowed to use values in types in order to make talking about computatio
 
 In Coq it is customary not to assume the law of excluded middle $\forall a : a \lor \lnot a$. This has little effect on the proof at hand, as it is about finite objects. For those a = b is equivalent to a == b and the latter is always true or false, as it can be computed.
 
-\subsection{Lemmas and definitions}
+\section{Mechanized proof}\label{mechproof}
+
+I have formalized the proof presented in Section~\ref{nlproof} and an implementation of maximization in Coq. I've written a proof of that implementation's correctness.
+
+This section is written for a reader that has some familiarity with statically typed functional programming but hasn't used Coq. I would encourage readers that have already written some mechanized proofs of their own to study the proof's source code~\cite{source_code} along with the natural language proof (Section~\ref{nlproof}) that closely follows it.
+
+\subsection{Constants and variables}
 
 \begin{listing}[h]
 \begin{minted}{Coq}
