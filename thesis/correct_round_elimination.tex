@@ -593,42 +593,6 @@ A trivial extension yields an algorithm for finding the maximal form: The input 
 
 The mechanized proof covers this algorithm as well, as you'll see in section~\ref{mechproof}.
 
-\section{Performance}
-
-Maximization is the most expensive part of the original Round Eliminator's algorithm. Maximization via line combination is orders of magnitude faster in practice and is resistant to some pathological inputs but it remains the most computationally expensive part. % TODO add to abstract maybe?
-
-Evaluating the performance of maximization is difficult, as its output can be exponentially larger than its input. However, there is no known algorithm for checking maximality that is more efficient than performing maximization. Therefore I will compare different algorithms' performance on the decision problem of finding out whether a set of lines is maximal or not.
-
-\subsection{Prior art}
-
-The maximization algorithm previously used in Round Eliminator relies on a procedure that transforms a maximal form into a maximal form with one configuration removed. If every configuration was valid, the maximal form would be a single line that generates every configuration, so that line is the starting point. Then each invalid configuration is removed one by one.
-
-The algorithm sees all permutations of a line as separate lines and deduplicates only at the end. I will refer to them as lines and configurations in this description even though I mean their ordered counterparts.
-
-To remove an invalid configuration from a line, the line is split into $\Delta$ different versions that cannot produce the invalid configuration because one of the symbols in the configuration has been removed from each.
-
-The algorithm computes the set of invalid configurations by filtering all $|\Sigma|^{\Delta}$ possible configurations. It produces $\Delta!$ permutations of the output lines before the removal of permutations.
-
-After removing each configuration, dominated lines are discarded with an $O(\Delta n^2)$ pass.
-
-It is unclear how exactly the size of the maximal form develops, so the average number of lines is unknown. Assuming that the number of lines grows linearly, the time complexity of checking maximality is $O(|\Sigma|^{\Delta}{(n\Delta!)}^2)$.
-
-There is an adversarial input that defeats this algorithm. Just concatenate multiple copies of an input, renamed so that each has its own disjoint subset of the alphabet. Then the number of valid lines grows linearly with the size of the input but the number of possible configurations grows to the power of the degree.
-
-\subsection{Line combination}
-
-To check maximality with the new algorithm, one has to combine every pair of lines in every possible way and compare the results to the original lines.
-
-The lines can be combined in $n^2\Delta!$ different ways. However, most of those ways result in lines that can be discarded because they contain an empty set or because they are dominated by the original lines or some other combination. Computing the combinations is feasible even for large $\Delta$ when the lines contain many duplicated sets because in that case the order of the duplicated elements has no effect on the outcome. This seems to happen often in practice. However, it is an open question if it is possible to design an algoritm that does not have a factorial worst case.
-
-Comparing two lines can be done by building a bipartite graph where each bipartition represents one of the lines and connecting one side's sets to every set on the other side that is included in them. If there is a perfect matching, one line dominates the other. Bipartite perfect matching can be solved in $O(\Delta^{2.5})$ via the Hopcroft-Karp algorithm. In practice it seems that a backtracking search can be faster but that could be asymptotically worse.
-
-The resulting time complexity is $O(n^{3}\Delta!\Delta^{2.5})$. Notably, the size of the alphabet has no effect on running time anymore.
-
-The current practical implementations compare new lines against other lines originating from the same two lines before comparing against every line. This is worthwhile based on the assumption that many of the new lines are just inferior versions of the best lines of that batch.
-
-Maintaining a set of dominated lines and checking new lines against that set before doing any comparisons has improved performance by an order of magnitude in practice, which means that at least in the inputs tested, some useless lines are created very many times.
-
 
 \section{Type theory as mathematical foundation}
 
@@ -863,6 +827,65 @@ Definition strictly_dominated (a b : line) := strictly_dominates b a.
 
 Lemma strictly_dominated_wf : well_founded strictly_dominated.
 \end{minted}
+
+
+\section{Results}
+
+\subsection{Time complexity}
+
+Maximization is the most expensive part of the original Round Eliminator's algorithm. Maximization via line combination is orders of magnitude faster in practice and is resistant to some pathological inputs but it remains the most computationally expensive part. % TODO add to abstract maybe?
+
+Evaluating the performance of maximization is difficult, as its output can be exponentially larger than its input. However, there is no known algorithm for checking maximality that is more efficient than performing maximization. Therefore I will compare different algorithms' performance on the decision problem of finding out whether a set of lines is maximal or not.
+
+\subsubsection{Prior art}
+
+The maximization algorithm previously used in Round Eliminator relies on a procedure that transforms a maximal form into a maximal form with one configuration removed. If every configuration was valid, the maximal form would be a single line that generates every configuration, so that line is the starting point. Then each invalid configuration is removed one by one.
+
+The algorithm sees all permutations of a line as separate lines and deduplicates only at the end. I will refer to them as lines and configurations in this description even though I mean their ordered counterparts.
+
+To remove an invalid configuration from a line, the line is split into $\Delta$ different versions that cannot produce the invalid configuration because one of the symbols in the configuration has been removed from each.
+
+The algorithm computes the set of invalid configurations by filtering all $|\Sigma|^{\Delta}$ possible configurations. It produces $\Delta!$ permutations of the output lines before the removal of permutations.
+
+After removing each configuration, dominated lines are discarded with an $O(\Delta n^2)$ pass.
+
+It is unclear how exactly the size of the maximal form develops, so the average number of lines is unknown. Assuming that the number of lines grows linearly, the time complexity of checking maximality is $O(|\Sigma|^{\Delta}{(n\Delta!)}^2)$.
+
+There is an adversarial input that defeats this algorithm. Just concatenate multiple copies of an input, renamed so that each has its own disjoint subset of the alphabet. Then the number of valid lines grows linearly with the size of the input but the number of possible configurations grows to the power of the degree.
+
+\subsubsection{Line combination}
+
+To check maximality with the new algorithm, one has to combine every pair of lines in every possible way and compare the results to the original lines.
+
+The lines can be combined in $n^2\Delta!$ different ways. However, most of those ways result in lines that can be discarded because they contain an empty set or because they are dominated by the original lines or some other combination. Computing the combinations is feasible even for large $\Delta$ when the lines contain many duplicated sets because in that case the order of the duplicated elements has no effect on the outcome. This seems to happen often in practice. However, it is an open question if it is possible to design an algoritm that does not have a factorial worst case.
+
+Comparing two lines can be done by building a bipartite graph where each bipartition represents one of the lines and connecting one side's sets to every set on the other side that is included in them. If there is a perfect matching, one line dominates the other. Bipartite perfect matching can be solved in $O(\Delta^{2.5})$ via the Hopcroft-Karp algorithm. In practice it seems that a backtracking search can be faster but that could be asymptotically worse.
+
+The resulting time complexity is $O(n^{3}\Delta!\Delta^{2.5})$. Notably, the size of the alphabet has no effect on running time anymore.
+
+\subsection{Performance on the LCL classifier dataset}
+
+Both my and Olivetti's implementation of the new algorithm compares new lines against other lines originating from the same two lines before comparing against every line. This is worthwhile based on the assumption that many of the new lines are just inferior versions of the best lines of that batch.
+
+Olivetti showed me that maintaining a set of dominated lines and checking new lines against that set before doing any comparisons improves performance by an order of magnitude in practice, which means that at least in the inputs tested, some useless lines are created very many times.
+
+\subsection{Formalization methods}
+
+A lot of tedium was involved in formalizing the proofs. I was able to prove very quickly that the result of combining two lines doesn't produce any new colorings. Dealing with the ability to shuffle the lines into any order before combining seemed like something that could benefit from existing theories, so I switched to the mathematical components library at that point.
+
+Explain how ssreflect and math-comp relate to each other
+
+An important idea in math-comp is that every proposition is written as a boolean expression and converted into the most suitable form via a reflection view when necessary.~\cite{mathcompbook} This is good because it makes you think about how you want to proceed with the proof instead of just blindly destructing every conjunction and splitting every disjunction. However, often that is precisely what needs to be done and in that case ssreflect only creates more work.
+
+The big upside of converting between booleans and propositions is that booleans are excellent for doing case analysis or even proofs via computation. Suppose we would like to consider cases where a equals b and where it does not separately. Via small-scale reflection we can view their equality as a boolean and perform case analysis on it. In conventional Coq, one would have to write a function for the type of a and b that either returns that its arguments are equal or that they are not. For equality, the standard library defines a tactic \icoq{decide equality} that fills in the body of such a function but that only works for equality.
+
+Tuple pain
+
+Automation doesn't work with ssr pain (especially lia)
+
+Convoy pattern pain. Code doesn't contain match due to math-comp!
+
+\section{Summary}
 
 \clearpage
 \thesisbibliography{}
