@@ -116,8 +116,7 @@ Lemma dominates_trans {n} (a b c : n.-line) : a ⊆ b -> b ⊆ c -> a ⊆ c.
   apply/all2_tnthP => i; rewrite tnth_mktuple.
   apply: subset_trans; last apply: ss2.
   apply: subset_trans; first apply: ss.
-  move: pp => /val_inj/eqP. rewrite eqEtuple => /forallP.
-  by move/(_ i); rewrite tnth_mktuple => /eqP x; rewrite x.
+  by move: pp => /val_inj pp; rewrite pp tnth_mktuple.
 Qed.
 
 Lemma dominates_configurations (a b : line) :
@@ -139,10 +138,26 @@ Lemma dominates_perm (a b b' : line) : perm_eq b b' -> a ⊆ b -> a ⊆ b'.
   by apply: perm_trans; [rewrite perm_sym; eassumption |].
 Qed.
 
+Lemma dominates_perm_rew (a b b' : line) : perm_eq b b' -> a ⊆ b = a ⊆ b'.
+  move=> pe.
+  move: (@dominates_perm a b b' pe) => /implyP.
+  rewrite perm_sym in pe.
+  move: (@dominates_perm a b' b pe) => /implyP.
+  by case: (a ⊆ b); case (a ⊆ b').
+Qed.
+
 Lemma dominates_perm2 (a a' b : line) : perm_eq a a' -> a ⊆ b -> a' ⊆ b.
   move=> pe /existsP[a'' /existsP[b' /andP[/andP[aa bb] ss]]].
   fill_ex a''; fill_ex b'; split_and.
   by apply: perm_trans; [rewrite perm_sym; eassumption |].
+Qed.
+
+Lemma dominates_perm2_rew (a a' b : line) : perm_eq a a' -> a ⊆ b = a' ⊆ b.
+  move=> pe.
+  move: (@dominates_perm2 a a' b pe) => /implyP.
+  rewrite perm_sym in pe.
+  move: (@dominates_perm2 a' a b pe) => /implyP.
+  by case: (a ⊆ b); case (a' ⊆ b).
 Qed.
 
 Lemma strictly_dominates_perm (a b b' : line) : perm_eq b b' -> a ⊂ b -> a ⊂ b'.
@@ -155,8 +170,21 @@ Lemma strictly_dominates_perm (a b b' : line) : perm_eq b b' -> a ⊂ b -> a ⊂
   by apply: (dominates_perm2 pe).
 Qed.
 
+Lemma strictly_dominates_perm_rew (a b b' : line) : perm_eq b b' -> a ⊂ b = a ⊂ b'.
+  move=> pe.
+  rewrite /strictly_dominates (dominates_perm2_rew _ pe).
+  rewrite perm_sym in pe.
+  by rewrite (dominates_perm_rew _ pe).
+Qed.
+
+Lemma strictly_dominates_perm2_rew (a a' b : line) : perm_eq a a' -> a ⊂ b = a' ⊂ b.
+  move=> pe.
+  rewrite /strictly_dominates (dominates_perm2_rew _ pe).
+  rewrite perm_sym in pe.
+  by rewrite (dominates_perm_rew _ pe).
+Qed.
+
 Variable input : seq line.
-Variable input_nonempty : input <> [::].
 
 Definition valid (l : line) :=
   forall x, x ∈ l -> [exists i in input, x ∈ i].
@@ -168,11 +196,8 @@ Qed.
 
 Definition weight (l : seq {set color}) := \sum_(i <- l) #|i|.
 
-Lemma sum_map {T} f (a : seq T) : \sum_(i <- a) f i = \sum_(i <- map f a) i.
-  elim: a.
-    by rewrite -foldrE big_nil.
-  move=> a l IH.
-  by rewrite /= !big_cons IH.
+Lemma sum_map {n T} f (a : n.-tuple T) : \sum_(i <- a) f i = \sum_(i <- map_tuple f a) i.
+  by rewrite big_map.
 Qed.
 
 Lemma perm_weight {n} (a a' : n.-line) : perm_eq a a' -> weight a = weight a'.
@@ -489,6 +514,212 @@ Qed.
 
 Definition all_combinations (a b : line) := [:: a; b]. (*TODO*)
 
+Lemma all_combinations_correct a b :
+  ∀ c, c \in all_combinations a b <-> combination_of a b c.
+Admitted.
+
+Definition cannot_find_more :=
+  [forall a in input, [forall b in input,
+    [forall c in all_combinations a b, ~~ missing c]]].
+
+Definition none_dominated :=
+  [forall a in input, forall b in input, ~~ (a ⊂ b)].
+
+Definition is_maximal_form :=
+  cannot_find_more && none_dominated.
+
+Definition maximal x := valid x ∧ ∀ y, valid y -> ~~ (x ⊂ y).
+
+Lemma input_valid x : x \in input -> valid x.
+  move => inp.
+  rewrite /valid => c cinx.
+  fill_ex x; split_and.
+Qed.
+
+Lemma perm_le_eq (a b : Δ.-tuple nat) :
+  perm_eq a b ->
+  (∀ i, tnth a i <= tnth b i) -> a == b.
+Proof.
+  move=> pe.
+  have: \sum_(i <- a) i = \sum_(i <- b) i.
+    by apply: perm_big.
+  move: pe => _; move: a b.
+  elim Δ.
+    by move=> a b _ _; rewrite -(rwP eqP) [in RHS]tuple0 tuple0.
+  move=> n ih a b.
+  case/tupleP: a => ah a.
+  case/tupleP: b => bh b.
+  rewrite !big_cons => eq_sum /all2_tnthP. rewrite all2Et => /= /andP[le_h].
+  rewrite -all2Et => /all2_tnthP le_ab.
+  suff: \sum_(i <- a) i <= \sum_(i <- b) i.
+    rewrite leq_eqVlt => /orP[]; last first.
+      by move: eq_sum le_h; sslia.
+    move=> /eqP eq_sum_ab.
+    apply/eqP; apply: tuple_f_equal.
+      by move: eq_sum eq_sum_ab; sslia.
+    by apply/eqP; apply: ih.
+  by rewrite !big_tuple; apply: leq_sum => i _.
+Qed.
+
+Lemma perm_card_le_eq (a b : line) :
+  perm_eq a b ->
+  (∀ i, #|tnth a i| <= #|tnth b i|) -> ∀ i, #|tnth a i| == #|tnth b i|.
+Proof.
+  move=> pe le.
+  have precompute: ∀ (x : line) i, #|tnth x i| = tnth [tuple #|tnth x i| | i < Δ] i.
+    by intros; rewrite !tnth_simpl.
+  move=> i.
+  rewrite !precompute.
+  move: i; apply/forallP; rewrite -eqEtuple; apply: perm_le_eq.
+    have asd: ∀ t : line, val [tuple #|tnth t i| | i < Δ] = [seq #|x| | x : {set color} <- val t].
+      move=> t.
+      have: [seq #|tnth t i| | i <- enum 'I_Δ] = [seq #|x| | x : {set color} <- [seq tnth t i | i <- enum 'I_Δ]].
+        by rewrite -map_comp.
+      by rewrite map_tnth_enum.
+    by rewrite !asd; apply: perm_map.
+  by move=> i; rewrite !tnth_simpl.
+Qed.
+
+Lemma dominates_antisym (a b : line) : a ⊆ b -> b ⊆ a -> perm_eq a b.
+  move=> /existsP[a'] /existsP[b'] /andP[]/andP[] pa' pb' /all2_tnthP ainb.
+  move=> /existsP[b''] /existsP[a''] /andP[]/andP[] pb'' pa'' /all2_tnthP bina.
+  simpl in *.
+  have /tuple_permP[p pp] : perm_eq b' b''.
+    apply: perm_trans; last apply: pb''.
+    by rewrite perm_sym.
+  suff a_eq_b : a' == b'.
+    apply: (perm_trans pa').
+    by rewrite (eqP a_eq_b) perm_sym.
+  have bina2: ∀ i, tnth b' i \subset tnth a'' (p i).
+    move=> i.
+    move: pp => /val_inj/eqP. rewrite eqEtuple => /forallP pp. move:(pp i).
+    rewrite !tnth_simpl => /eqP pp2.
+    by rewrite pp2.
+  have asuba: ∀ i, tnth a' i \subset tnth a'' (p i).
+    by move=> i; apply: subset_trans; first apply: ainb.
+  have eq_aa': a' == [tuple tnth a'' (p j) | j < Δ].
+    rewrite eqEtuple; apply/forallP => i.
+    apply/eqP/setP/subset_cardP.
+    apply/eqP; apply perm_card_le_eq.
+      have /tuple_permP[ap app]: perm_eq a'' a'.
+        rewrite perm_sym. apply: perm_trans; last apply: pa''.
+        by rewrite perm_sym.
+      rewrite (val_inj app).
+      rewrite mktuple_mktuple.
+      rewrite perm_sym.
+      apply/tuple_permP. exists (p * ap)%g.
+      have hlp: (λ x, tnth a' (ap (p x))) =1 λ x, tnth a' ((p * ap)%g x).
+        by move=> k; rewrite permM.
+      by apply/eqP; rewrite (eq_mktuple _ hlp).
+      move=> j.
+      rewrite !tnth_simpl.
+      by apply: subset_leq_card.
+    by rewrite !tnth_simpl.
+  rewrite eqEtuple; apply/forallP => i.
+  rewrite eqEsubset; split_and.
+  by rewrite (eqP eq_aa') !tnth_simpl.
+Qed.
+
+Lemma maximals_cover (x : line) :
+  valid x -> ∃ y, maximal y ∧ x ⊆ y.
+Admitted.
+
+Lemma cannot_find_more_works :
+  cannot_find_more <->
+  (∀ x, maximal x -> [exists y in input, perm_eq x y]).
+Proof.
+  split.
+    move=> cfm x [vx mx].
+    case E : [exists y in input, perm_eq x y] => //.
+    move: E => /exists_inPn /= not_in_input.
+    have miss: missing x.
+      apply/forall_inP => y yin.
+      case C : (x ⊆ y) => //=.
+      case D : (y ⊆ x).
+        move: (not_in_input y yin) => /negPf <-.
+        by apply: dominates_antisym.
+      suff: (~~ (x ⊂ y)).
+        move=> /negPf <-.
+        split_and.
+        by apply/negPf.
+      apply: mx.
+      by apply: input_valid.
+    have nz: nonzero x.
+      give_up.
+    unfold cannot_find_more in *.
+    move: combining_two_suffices.
+    give_up.
+  move=> has_maximals.
+  apply/forall_inP => a ain.
+  apply/forall_inP => b bin.
+  apply/forall_inP => c cin.
+  move: (@maximals_cover c) => [].
+    move=> x in_xc.
+    move: (@combination_is_sound a b c x) => [] //.
+      by apply all_combinations_correct.
+    by intro; fill_ex a; split_and.
+    by intro; fill_ex b; split_and.
+  move=> m [mm in_cm].
+  move: (has_maximals m mm) => /exists_inP[m' m'_in pe_m'].
+  apply/forallPn => /=; exists m'.
+  rewrite m'_in => /=; apply/negPn.
+  by rewrite (dominates_perm pe_m').
+Admitted.
+
+Theorem is_maximal_form_works :
+  is_maximal_form <-> (∀ x : line, [exists y in input, perm_eq x y] <-> maximal x).
+Proof.
+  split.
+    move=> /andP[/cannot_find_more_works cfm nd] x.
+    split.
+      move=> /exists_inP[y yin pey].
+      rewrite /maximal. split_and.
+        apply: dominated_valid; last first.
+          by apply: input_valid; apply: yin.
+        by apply: (dominates_perm pey); apply dominates_refl.
+      move=> a va.
+      move: nd => /(forall_inPP _ (λ x, forall_inP)) /= aa.
+      rewrite (strictly_dominates_perm2_rew _ pey).
+      move: (maximals_cover va) => [ma [mma dom_ama]].
+      suff: ~~ (y ⊂ ma) -> ~~ (y ⊂ a).
+        move=> -> //.
+        move: (cfm ma mma) => /exists_inP[ma' inma' pema'].
+        rewrite (strictly_dominates_perm_rew _ pema').
+        by apply: aa => //.
+      rewrite /strictly_dominates => /nandP[] tf; apply/nandP.
+        left. case E: (y ⊆ a) => //.
+        by inversion tf; apply/negPn; apply: (dominates_trans E).
+      right; apply/negPn; apply: (dominates_trans dom_ama).
+      by move: tf => /negPn.
+    by apply: cfm.
+  move=> input_maximal.
+  split_and.
+    by apply cannot_find_more_works; apply input_maximal.
+  rewrite /none_dominated.
+  apply/forall_inP => a ain.
+  apply/forall_inP => b bin.
+  suff: maximal a.
+    move=> [_ max].
+    by apply: max; apply: input_valid.
+  apply input_maximal.
+  apply/exists_inP.
+  by exists a.
+Qed.
+
+Lemma is_maximal_form_works1 :
+  none_dominated <-> (∀ x, x \in input -> maximal x).
+Proof.
+  split.
+    move=> /forall_inP; setoid_rewrite <- (rwP forall_inP). simpl.
+    move=> nd x xin. split_and. by apply: input_valid.
+    move=> y y_valid. apply: nd => //.
+
+  move=> all_maximal.
+  apply/forall_inP => a ain; apply/forall_inP => b bin.
+  apply all_maximal => //.
+  by apply: input_valid.
+Abort.
+
 Definition maximize_step res new :=
   if all (λ x, new ⊈ x) res then
     ( new :: filter (λ x, x ⊈ new) res
@@ -572,8 +803,6 @@ eauto using maximize_progress_wf'.
 Qed.
 
 Definition maximized := maximize' [::] input.
-
-Definition maximal x := valid x ∧ ∀ y, valid y -> ~ x ⊂ y.
 
 Theorem maximize_works : ∀ x, x \in maximized <-> maximal x.
 split; rewrite /maximized.
