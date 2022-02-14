@@ -168,17 +168,6 @@ Lemma strictly_dominates_perm2 (a a' b : line) : perm_eq a a' -> a ⊂ b = a' �
   by rewrite (dominates_perm _ pe).
 Qed.
 
-Variable input : seq line.
-
-Definition valid (l : line) :=
-  [forall (x | x ∈ l), [exists i in input, x ∈ i]].
-
-Lemma dominated_valid (a b : line) : a ⊆ b -> valid b -> valid a.
-  move=> /dominates_configurations/forall_inP subset vb.
-  apply/forall_inP => x x_in_a. apply: (forall_inP vb).
-  by apply: subset.
-Qed.
-
 Definition weight (l : seq {set color}) := \sum_(i <- l) #|i|.
 
 Lemma sum_map {n T} f (a : n.-tuple T) : \sum_(i <- a) f i = \sum_(i <- map_tuple f a) i.
@@ -391,8 +380,20 @@ Lemma bigger_is_better a b c a' b' : a ⊆ a' -> b ⊆ b' -> combination_of a b 
   by rewrite (eq_mktuple _ (hlp _ _ _ _)) -all2_perm.
 Qed.
 
+Variable input : seq line.
+Variable input_nonzero: ∀ x, x \in input -> nonzero x.
+
+Definition valid (l : line) :=
+  [forall (x | x ∈ l), [exists i in input, x ∈ i]].
+
+Lemma dominated_valid (a b : line) : a ⊆ b -> valid b -> valid a.
+  move=> /dominates_configurations/forall_inP subset vb.
+  apply/forall_inP => x x_in_a. apply: (forall_inP vb).
+  by apply: subset.
+Qed.
+
 Inductive iterated_combination : line -> Prop :=
-    present : ∀ a, a \in input -> nonzero a -> iterated_combination a
+    present : ∀ a, a \in input -> iterated_combination a
   | combined : ∀ (a b c : line), iterated_combination a -> iterated_combination b ->
       combination_of a b c -> nonzero c -> iterated_combination c.
 
@@ -480,7 +481,7 @@ Qed.
 Lemma combination_chain x : iterated_combination x -> missing x ->
   ∃ a b c, a \in input ∧ b \in input ∧ combination_of a b c ∧ nonzero c ∧ missing c.
   elim.
-    move=> a aa nza /forallP; move/(_ a); by rewrite aa dominates_refl.
+    by move=> a aa /forallP; move/(_ a); rewrite aa dominates_refl.
   move=> a b c ica IHa icb IHb comb nzc mc.
   case Ea : (missing a). by apply: IHa.
   move: Ea => /forall_inPn[a' a'i /negPn a'd].
@@ -512,8 +513,6 @@ Admitted.
 Definition cannot_find_more :=
   [forall a in input, [forall b in input,
     [forall c in all_combinations a b, ~~ (missing c && nonzero c)]]].
-
-Variable input_nonzero: ∀ x, x \in input -> nonzero x.
 
 Definition none_dominated :=
   [forall a in input, forall b in input, ~~ (a ⊂ b)].
