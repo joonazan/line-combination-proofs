@@ -47,6 +47,17 @@ Lemma mktuple_mktuple {n T} (a : n.-tuple T) f g :
   by rewrite /eqfun => i; rewrite tnth_mktuple.
 Qed.
 
+Lemma sym_impl_is_eq T (S : T -> T -> bool) (s : symmetric S) (P : pred T) :
+  (∀ (a b : T), S a b -> P a -> P b) ->
+  ∀ (a b : T), S a b -> P a = P b.
+  move=> one_way a b sab.
+  case E: (P b).
+    apply: one_way; last apply: E.
+    by rewrite s.
+  case C: (P a) => //.
+  by move: (one_way a b sab C); rewrite E.
+Qed.
+
 Ltac liafy := rewrite -?(rwP leP) -?(rwP ltP) -?(rwP negP) -?(rwP eqP) -?plusE.
 Ltac sslia := liafy; lia.
 
