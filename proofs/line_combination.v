@@ -187,11 +187,12 @@ Qed.
 Variable input : seq line.
 
 Definition valid (l : line) :=
-  forall x, x ∈ l -> [exists i in input, x ∈ i].
+  [forall (x | x ∈ l), [exists i in input, x ∈ i]].
 
 Lemma dominated_valid (a b : line) : a ⊆ b -> valid b -> valid a.
-  move=> /dominates_configurations/forall_inP ss vb x x_in_a.
-  by apply: vb; apply: ss.
+  move=> /dominates_configurations/forall_inP subset vb.
+  apply/forall_inP => x x_in_a. apply: (forall_inP vb).
+  by apply: subset.
 Qed.
 
 Definition weight (l : seq {set color}) := \sum_(i <- l) #|i|.
@@ -461,7 +462,7 @@ Theorem combination_is_complete :
     rewrite col_line; fill_ex col; split_and.
     by apply/all2_tnthP => i; rewrite !tnth_simpl; apply: set11.
 
-  move: (vorig col col_good) => /exists_inP[inp inp2 /exists_inP[col' colp up]].
+  move: ((forall_inP vorig) col col_good) => /exists_inP[inp inp2 /exists_inP[col' colp up]].
   exists inp.
   have orig_lt_inp: orig ⊆ inp.
     fill_ex (map_tuple set1 col'); fill_ex inp.
@@ -520,7 +521,9 @@ Admitted.
 
 Definition cannot_find_more :=
   [forall a in input, [forall b in input,
-    [forall c in all_combinations a b, ~~ missing c]]].
+    [forall c in all_combinations a b, ~~ (missing c && nonzero c)]]].
+
+Variable input_nonzero: ∀ x, x \in input -> nonzero x.
 
 Definition none_dominated :=
   [forall a in input, forall b in input, ~~ (a ⊂ b)].
@@ -528,11 +531,11 @@ Definition none_dominated :=
 Definition is_maximal_form :=
   cannot_find_more && none_dominated.
 
-Definition maximal x := valid x ∧ ∀ y, valid y -> ~~ (x ⊂ y).
+Definition maximal x := valid x && [forall (y | valid y), ~~ (x ⊂ y)].
 
 Lemma input_valid x : x \in input -> valid x.
   move => inp.
-  rewrite /valid => c cinx.
+  apply/forall_inP => c cinx.
   fill_ex x; split_and.
 Qed.
 
@@ -620,16 +623,45 @@ Lemma dominates_antisym (a b : line) : a ⊆ b -> b ⊆ a -> perm_eq a b.
   by rewrite (eqP eq_aa') !tnth_simpl.
 Qed.
 
+Definition weight_max := Δ * alphabet_size.
+
+Lemma weight_max_max (x : line) : weight x <= weight_max.
+  unfold weight.
+  suff X: weight_max = \sum_(i <- x) alphabet_size.
+    rewrite X.
+    apply: leq_sum => i _.
+    by move: (max_card i); rewrite card_ord.
+  by rewrite big_tuple sum_nat_const card_ord.
+Qed.
+
 Lemma maximals_cover (x : line) :
   valid x -> ∃ y, maximal y ∧ x ⊆ y.
-Admitted.
+Proof.
+  have [n wx] := ubnP (weight_max - weight x); elim: n => // n IH in x wx *.
+  move=> vx.
+  case E: (maximal x).
+    exists x. split_and.
+    by apply: dominates_refl.
+  rewrite /maximal in E.
+  move: E; rewrite (rwP negPf) negb_and => /orP[].
+    by rewrite vx.
+  move=> /forallPn[y]. rewrite negb_imply => /andP[vy]/negPn dom_yx.
+  move: (IH y) => []//.
+    move: wx; rewrite !ltn_subLR;
+    first (move: (strictly_dominates_weight dom_yx); sslia);
+    apply: weight_max_max.
+  move=> x' [mx' domy].
+  exists x'; split_and.
+  apply: (dominates_trans _ domy).
+  by move: dom_yx => /andP[].
+Qed.
 
 Lemma cannot_find_more_works :
   cannot_find_more <->
-  (∀ x, maximal x -> [exists y in input, perm_eq x y]).
+  (∀ x : line, nonzero x -> maximal x -> [exists y in input, perm_eq x y]).
 Proof.
   split.
-    move=> cfm x [vx mx].
+    move=> cfm x nz /andP[vx mx].
     case E : [exists y in input, perm_eq x y] => //.
     move: E => /exists_inPn /= not_in_input.
     have miss: missing x.
@@ -642,55 +674,66 @@ Proof.
         move=> /negPf <-.
         split_and.
         by apply/negPf.
-      apply: mx.
+      apply: (forall_inP mx).
       by apply: input_valid.
-    have nz: nonzero x.
-      give_up.
-    unfold cannot_find_more in *.
-    move: combining_two_suffices.
-    give_up.
+    move: (combining_two_suffices miss nz vx) => [a][b][c][ain][bin][cin][nzc mc].
+    rewrite <- all_combinations_correct in cin.
+    move: (forall_inP cfm a ain) => /forall_inP/(_ b bin)/forall_inP/(_ c cin).
+    by rewrite mc nzc.
   move=> has_maximals.
   apply/forall_inP => a ain.
   apply/forall_inP => b bin.
   apply/forall_inP => c cin.
   move: (@maximals_cover c) => [].
-    move=> x in_xc.
+    rewrite -(rwP forall_inP) => x in_xc.
     move: (@combination_is_sound a b c x) => [] //.
       by apply all_combinations_correct.
     by intro; fill_ex a; split_and.
     by intro; fill_ex b; split_and.
   move=> m [mm in_cm].
-  move: (has_maximals m mm) => /exists_inP[m' m'_in pe_m'].
+  case E: (nonzero c); apply/nandP; [left | by right].
+  move: (bigger_nonzero in_cm E) => nzm.
+  move: (has_maximals m nzm mm) => /exists_inP[m' m'_in pe_m'].
   apply/forallPn => /=; exists m'.
   rewrite m'_in => /=; apply/negPn.
   by rewrite (dominates_perm pe_m').
-Admitted.
+Qed.
 
 Theorem is_maximal_form_works :
-  is_maximal_form <-> (∀ x : line, [exists y in input, perm_eq x y] <-> maximal x).
+  is_maximal_form <-> (∀ x : line, nonzero x -> [exists y in input, perm_eq x y] <-> maximal x).
 Proof.
   split.
-    move=> /andP[/cannot_find_more_works cfm nd] x.
+    move=> /andP[/cannot_find_more_works cfm nd] x nzx.
     split.
       move=> /exists_inP[y yin pey].
-      rewrite /maximal. split_and.
+      split_and.
         apply: dominated_valid; last first.
           by apply: input_valid; apply: yin.
         by apply: (dominates_perm pey); apply dominates_refl.
-      move=> a va.
-      move: nd => /(forall_inPP _ (λ x, forall_inP)) /= aa.
+      rewrite -(rwP forall_inP) => a va.
+      move: nd => /(forall_inPP _ (λ x, forall_inP)) /= nd.
       rewrite (strictly_dominates_perm2_rew _ pey).
       move: (maximals_cover va) => [ma [mma dom_ama]].
-      suff: ~~ (y ⊂ ma) -> ~~ (y ⊂ a).
-        move=> -> //.
-        move: (cfm ma mma) => /exists_inP[ma' inma' pema'].
-        rewrite (strictly_dominates_perm_rew _ pema').
-        by apply: aa => //.
-      rewrite /strictly_dominates => /nandP[] tf; apply/nandP.
-        left. case E: (y ⊆ a) => //.
-        by inversion tf; apply/negPn; apply: (dominates_trans E).
-      right; apply/negPn; apply: (dominates_trans dom_ama).
-      by move: tf => /negPn.
+      case E: (y ⊂ a) => //.
+      have nzy: nonzero y.
+        apply: bigger_nonzero; last apply: nzx.
+        apply: dominates_perm; [apply: pey | apply: dominates_refl].
+      have nzma: nonzero ma.
+        apply: bigger_nonzero; last apply: nzy.
+        apply: dominates_trans; last apply: dom_ama.
+        by move: E => /andP[].
+      move: (cfm ma nzma mma) => /exists_inP[ma' inma' pema'].
+      suff: y ⊂ ma'.
+        by move=> <-; apply: nd.
+      apply: (strictly_dominates_perm pema').
+      split_and.
+        apply: dominates_trans; last apply: dom_ama.
+        by move: E => /andP[].
+      move: E => /andP[_].
+      case E: (ma ⊆ y) => //.
+      have: (a ⊆ y).
+        by apply: dominates_trans; [apply: dom_ama |].
+      by move=> <-.
     by apply: cfm.
   move=> input_maximal.
   split_and.
@@ -699,26 +742,13 @@ Proof.
   apply/forall_inP => a ain.
   apply/forall_inP => b bin.
   suff: maximal a.
-    move=> [_ max].
+    move=> /andP[_ /forall_inP max].
     by apply: max; apply: input_valid.
   apply input_maximal.
+    by apply: input_nonzero.
   apply/exists_inP.
   by exists a.
 Qed.
-
-Lemma is_maximal_form_works1 :
-  none_dominated <-> (∀ x, x \in input -> maximal x).
-Proof.
-  split.
-    move=> /forall_inP; setoid_rewrite <- (rwP forall_inP). simpl.
-    move=> nd x xin. split_and. by apply: input_valid.
-    move=> y y_valid. apply: nd => //.
-
-  move=> all_maximal.
-  apply/forall_inP => a ain; apply/forall_inP => b bin.
-  apply all_maximal => //.
-  by apply: input_valid.
-Abort.
 
 Definition maximize_step res new :=
   if all (λ x, new ⊈ x) res then
