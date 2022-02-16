@@ -58,8 +58,45 @@ Lemma sym_impl_is_eq T (S : T -> T -> bool) (s : symmetric S) (P : pred T) :
   by move: (one_way a b sab C); rewrite E.
 Qed.
 
+Lemma tuple_perm_cons : ∀ n (T : eqType) (x : T) (s1 s2 : n.-tuple T),
+  perm_eq (x :: s1) (x :: s2) = perm_eq s1 s2.
+Proof. by intros; apply: perm_cons. Qed.
+
+Lemma tuple_zip_map : ∀ n (T : eqType) f (a b : n.-tuple T),
+  zip_tuple [tuple tnth a (f i) | i < n] [tuple tnth b (f i) | i < n]
+  = [tuple tnth (zip_tuple a b) (f i) | i < n].
+Proof.
+  intros.
+  apply/eqP; rewrite eqEtuple; apply/forallP => i.
+  by rewrite !tnth_simpl.
+Qed.
+
+Lemma tuple_tnth_map : ∀ n (T U : eqType) (f : T -> U) p (t : n.-tuple T),
+  [tuple tnth (map_tuple f t) (p i) | i < n] = map_tuple f [tuple tnth t (p i) | i < n].
+Proof.
+  intros.
+  apply/eqP; rewrite eqEtuple; apply/forallP => i.
+  by rewrite !tnth_simpl.
+Qed.
+
 Ltac liafy := rewrite -?(rwP leP) -?(rwP ltP) -?(rwP negP) -?(rwP eqP) -?plusE.
 Ltac sslia := liafy; lia.
 
 Ltac split_and := repeat (split || (apply/andP; split); try done).
 Ltac fill_ex x := apply/existsP; exists x.
+
+Lemma tuple_perm_consP :
+  ∀ n (T : eqType) (x : T) (s : n.-tuple T) (t : n.+1.-tuple T),
+  perm_eq t [tuple of x :: s] ->
+  (∃ (i : 'I_n.+1) (u : n.-tuple T), rot_tuple i t = [tuple of x :: u] ∧ perm_eq u s).
+Proof.
+  move=> n T x s t /perm_consP[i][u][r p].
+  move: (perm_size p); rewrite size_tuple => /eqP sz.
+  case E: (i < n.+1).
+    exists (inord i); exists (Tuple sz); split_and.
+    by apply: val_inj; rewrite inordK.
+  exists ord0; exists (Tuple sz); split_and.
+  apply: val_inj => /=; rewrite rot0.
+  move: r; rewrite rot_oversize; first by move=> ->.
+  by rewrite size_tuple leqNgt E.
+Qed.

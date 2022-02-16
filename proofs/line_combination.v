@@ -504,11 +504,61 @@ Proof.
   by apply: (bigger_missing super).
 Qed.
 
-Definition all_combinations (a b : line) := [:: a; b]. (*TODO*)
+Definition tuple_permutations n T (t : n.-tuple T) :=
+  [seq [tuple tnth t (aperm i p) | i < n] | p <- enum 'S_n].
+
+Lemma tuple_permutations_correct (a a' : line) : a' \in tuple_permutations a <-> perm_eq a a'.
+  split.
+    move=> /mapP[p pe e].
+    rewrite perm_sym; apply/tuple_permP; exists p.
+    by rewrite e.
+  rewrite perm_sym.
+  move=> /tuple_permP[p] pe.
+  apply/mapP; exists p.
+    by apply/mapP; exists p.
+  by rewrite (val_inj pe).
+Qed.
+
+Definition rotations n T (t : n.-tuple T) : seq (n.-tuple T) :=
+  [seq rot_tuple (val i) t | i <- enum 'I_n].
+
+Definition all_combinations (a b : line) :=
+  flatten (map (λ a', map (combine a') (rotations b)) (tuple_permutations a)).
 
 Lemma all_combinations_correct a b :
   ∀ c : line, (∃ c' : line, perm_eq c c' ∧ c' \in all_combinations a b) <-> combination_of a b c.
-Admitted.
+Proof.
+  split.
+    move=> [c'][pe] /flatten_mapP/=[a' ap /mapP/=[b' /mapP[i ii br] comb]].
+    exists a', b', c'; split_and.
+      by rewrite perm_sym -tuple_permutations_correct.
+      by rewrite br; rewrite perm_rot.
+      by rewrite perm_sym.
+  move=> [a'][b'][c'][].
+  case/tupleP: a' => a'h a't.
+  case/tupleP: b' => b'h b't.
+  rewrite perm_sym => [pa][pb].
+  suff: ∃ (i : 'I_Δ) (b't' : one_minus_delta.-line), perm_eq b't b't' ∧ rot i b = [tuple of b'h :: b't'].
+    move=> [i][b't'][peb rb][pc] comb.
+    move: peb; rewrite perm_sym => /tuple_permP[p ppb].
+    exists (combine [tuple of a'h :: [tuple tnth a't (p i) | i < one_minus_delta]] [tuple of b'h :: b't']); split_and.
+      apply: perm_trans; first by rewrite perm_sym; apply: pc.
+      rewrite -comb /combine !theadE tuple_perm_cons.
+      rewrite perm_sym; apply/tuple_permP; exists p.
+      by rewrite (val_inj ppb) !tnth_simpl tuple_zip_map tuple_tnth_map.
+    apply/flatten_mapP; exists [tuple of a'h :: [tuple tnth a't (p i0) | i0 < one_minus_delta]].
+      apply tuple_permutations_correct.
+      apply: perm_trans; first by apply: pa.
+      by rewrite perm_cons perm_sym; apply: any_perm.
+    apply/mapP. exists [tuple of b'h :: b't'] => //.
+    apply/mapP; exists i.
+      by rewrite mem_enum.
+    by apply: val_inj => /=.  
+  move: pb; rewrite perm_sym => /tuple_perm_consP[i][b't'][rt pet].
+  exists i; exists b't'; split.
+    by rewrite perm_sym.
+  by rewrite -rt.
+Qed.
 
 Definition cannot_find_more :=
   [forall a in input, [forall b in input,
