@@ -760,8 +760,8 @@ This section is written for a reader that has some familiarity with statically t
 \begin{minted}{Coq}
 Variable alphabet_size: nat.
 Definition color := 'I_alphabet_size.
-Variable one_minus_delta: nat.
-Definition Δ := one_minus_delta.+1.
+Variable delta_minus_one: nat.
+Definition Δ := delta_minus_one.+1.
 
 Definition nline n := n.-tuple {set color}.
 Notation "n .-line" := (nline n) (at level 30, no associativity).
@@ -773,7 +773,7 @@ Definition configuration := Δ.-tuple color.
 
 Variables like \icoq{alphabet_size} automatically become arguments of any function that uses them in Coq. They are very convenient here, as I would otherwise have to explicitly make many lemmas depend on the alphabet size and $\Delta$.
 
-I use \icoq{one_minus_delta} to ensure that $\Delta$ is positive. That way I do not need to deal with the uninteresting case where vertices are not connected at all. I could instead add \icoq{Variable nonzero_delta := Δ <> 0} but then I would have to explicitly use it every time to eliminate the zero case.
+I use \icoq{delta_minus_one} to ensure that $\Delta$ is positive. That way I do not need to deal with the uninteresting case where vertices are not connected at all. I could instead add \icoq{Variable nonzero_delta := Δ <> 0} but then I would have to explicitly use it every time to eliminate the zero case.
 
 \begin{listing}[h]
 \begin{minted}{Coq}

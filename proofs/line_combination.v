@@ -9,8 +9,8 @@ Section Lines.
 
 Variable alphabet_size: nat.
 Definition color := 'I_alphabet_size.
-Variable one_minus_delta: nat.
-Definition Δ := one_minus_delta.+1.
+Variable delta_minus_one: nat.
+Definition Δ := delta_minus_one.+1.
 
 Definition nline n := n.-tuple {set color}.
 Notation "n .-line" := (nline n) (at level 30, no associativity).
@@ -538,15 +538,15 @@ Proof.
   case/tupleP: a' => a'h a't.
   case/tupleP: b' => b'h b't.
   rewrite perm_sym => [pa][pb].
-  suff: ∃ (i : 'I_Δ) (b't' : one_minus_delta.-line), perm_eq b't b't' ∧ rot i b = [tuple of b'h :: b't'].
+  suff: ∃ (i : 'I_Δ) (b't' : delta_minus_one.-line), perm_eq b't b't' ∧ rot i b = [tuple of b'h :: b't'].
     move=> [i][b't'][peb rb][pc] comb.
     move: peb; rewrite perm_sym => /tuple_permP[p ppb].
-    exists (combine [tuple of a'h :: [tuple tnth a't (p i) | i < one_minus_delta]] [tuple of b'h :: b't']); split_and.
+    exists (combine [tuple of a'h :: [tuple tnth a't (p i) | i < delta_minus_one]] [tuple of b'h :: b't']); split_and.
       apply: perm_trans; first by rewrite perm_sym; apply: pc.
       rewrite -comb /combine !theadE tuple_perm_cons.
       rewrite perm_sym; apply/tuple_permP; exists p.
       by rewrite (val_inj ppb) !tnth_simpl tuple_zip_map tuple_tnth_map.
-    apply/flatten_mapP; exists [tuple of a'h :: [tuple tnth a't (p i0) | i0 < one_minus_delta]].
+    apply/flatten_mapP; exists [tuple of a'h :: [tuple tnth a't (p i0) | i0 < delta_minus_one]].
       apply tuple_permutations_correct.
       apply: perm_trans; first by apply: pa.
       by rewrite perm_cons perm_sym; apply: any_perm.
@@ -763,8 +763,7 @@ Proof.
       move: (maximals_cover va) => [ma [mma dom_ama]].
       case E: (y ⊂ a) => //.
       have nzy: nonzero y.
-        apply: bigger_nonzero; last apply: nzx.
-        rewrite (dominates_perm2 _ pey); apply: dominates_refl.
+        by apply: input_nonzero.
       have nzma: nonzero ma.
         apply: bigger_nonzero; last apply: nzy.
         apply: dominates_trans; last apply: dom_ama.
@@ -881,8 +880,6 @@ Qed.
 
 Definition maximized := maximize' [::] input.
 
-Theorem maximize_works : ∀ x, x \in maximized <-> maximal x.
-split; rewrite /maximized.
-rewrite /maximize'.
+(* Theorem maximize_works : ∀ x, x \in maximized <-> maximal x. *)
 
 End Lines.
