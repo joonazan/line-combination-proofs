@@ -828,16 +828,13 @@ Definition strictly_dominated (a b : line) := strictly_dominates b a.
 Lemma strictly_dominated_wf : well_founded strictly_dominated.
 \end{minted}
 
+\section{Performance}
 
-\section{Results}
-
-\subsection{Time complexity}
-
-Maximization is the most expensive part of the original Round Eliminator's algorithm. Maximization via line combination is orders of magnitude faster in practice and is resistant to some pathological inputs but it remains the most computationally expensive part. % TODO add to abstract maybe?
+Maximization is the most expensive part of the original Round Eliminator's algorithm. Maximization via line combination is orders of magnitude faster in practice and is resistant to some pathological inputs but it remains the most computationally expensive part of round elimination. % TODO add to abstract maybe?
 
 Evaluating the performance of maximization is difficult, as its output can be exponentially larger than its input. However, there is no known algorithm for checking maximality that is more efficient than performing maximization. Therefore I will compare different algorithms' performance on the decision problem of finding out whether a set of lines is maximal or not.
 
-\subsubsection{Prior art}
+\subsection{Time complexity of the best previously known algorithm}
 
 The maximization algorithm previously used in Round Eliminator relies on a procedure that transforms a maximal form into a maximal form with one configuration removed. If every configuration was valid, the maximal form would be a single line that generates every configuration, so that line is the starting point. Then each invalid configuration is removed one by one.
 
@@ -853,7 +850,7 @@ It is unclear how exactly the size of the maximal form develops, so the average 
 
 There is an adversarial input that defeats this algorithm. Just concatenate multiple copies of an input, renamed so that each has its own disjoint subset of the alphabet. Then the number of valid lines grows linearly with the size of the input but the number of possible configurations grows to the power of the degree.
 
-\subsubsection{Line combination}
+\subsection{Time complexity of line combination}
 
 To check maximality with the new algorithm, one has to combine every pair of lines in every possible way and compare the results to the original lines.
 
@@ -863,11 +860,28 @@ Comparing two lines can be done by building a bipartite graph where each biparti
 
 The resulting time complexity is $O(n^{3}\Delta!\Delta^{2.5})$. Notably, the size of the alphabet has no effect on running time anymore.
 
-\subsection{Performance on the LCL classifier dataset}
+\subsection{In practice}
 
-Both my and Olivetti's implementation of the new algorithm compares new lines against other lines originating from the same two lines before comparing against every line. This is worthwhile based on the assumption that many of the new lines are just inferior versions of the best lines of that batch.
+I and Dennis Olivetti both implemented the new algoritm in the Rust programming language. TODO link to them.
 
-Olivetti showed me that maintaining a set of dominated lines and checking new lines against that set before doing any comparisons improves performance by an order of magnitude in practice, which means that at least in the inputs tested, some useless lines are created very many times.
+Both implementations compare new lines against other lines originating from the same pair of lines before comparing against the rest. This is worthwhile based on the assumption that many of the new lines are just inferior versions of the best lines of that batch.
+
+Olivetti showed me that maintaining a set of dominated lines and checking new lines against that set before doing any comparisons improves performance by an order of magnitude in practice, which means that at least in the inputs tested, tens of copies of some useless lines are created.
+
+I would have liked to measure the performance of the Coq function \icoq{is_maximal_form} but it turns out that even on the smallest possible input it requires a finite but large amount of memory. The next section explains how that shortcoming could be rectified.
+
+
+\section{Discussion}
+
+My goal was to build a provably correct version of round elimination while also improving its performance. I chose to focus solely on maximization, as it is the only nontrivial part of round elimination.
+
+The line combination algorithm for maximization delivers on the performance goal and is already in use but the machine-verified procedure for checking maximality needs more work to be of practical use. This section outlines how one could make the maximality checking program practical and how the proof could be extended to cover round elimination or even whole round eliminator sessions.
+
+\subsection{Impractical data structures}
+
+The formalization of round elimination uses many data structures and proofs provided by the Mathematical Components library. However, that library is made with pure mathematics in mind; functions using the data structures aren't meant to be executed.
+
+Let's take the definition of \icoq{n.-tuple}, a fixed size list, as an example. It is simply a wrapper around a list and a proof that the list's length is \icoq{n}.
 
 \subsection{Formalization methods}
 
@@ -884,8 +898,6 @@ Tuple pain
 Automation doesn't work with ssr pain (especially lia)
 
 Convoy pattern pain. Code doesn't contain match due to math-comp!
-
-\section{Summary}
 
 \clearpage
 \thesisbibliography{}
