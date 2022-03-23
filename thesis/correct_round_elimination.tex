@@ -708,7 +708,11 @@ To verify a program in a proof assistant that does not support programming, one 
 
 Besides, round elimination is commonly used as a subroutine in proofs, while operating systems are not. Embedding round elimination in Coq makes it possible to prove whole reasoning chains. A verified implementation of round elimination by itself doesn't prevent users from giving it the wrong input.
 
-\subsection{Coq Primer (This info will be spread throughout the discussion of the proof)}
+\subsection{Curry-Howard correspondence}
+
+TODO
+
+\section{Mechanized proof}\label{mechproof}
 
 \begin{listing}[h]
 \begin{minted}{Coq}
@@ -721,9 +725,6 @@ Lemma tnth_zip n S T (a : n.-tuple T) (b : n.-tuple S) i :
 Lemmas in Coq are types. Constructing any value of type T proves the lemma T.
 
 In Coq it is customary not to assume the law of excluded middle $\forall a : a \lor \lnot a$. This has little effect on the proof at hand, as it is about finite objects. For those a = b is equivalent to a == b and the latter is always true or false, as it can be computed.
-
-
-\section{Mechanized proof}\label{mechproof}
 
 \begin{listing}[h]
 \begin{minted}{Coq}
