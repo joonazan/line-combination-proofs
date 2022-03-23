@@ -591,21 +591,8 @@ Theorem \ref{justtwo} gives an efficient process for checking maximality: if all
 
 A trivial extension yields an algorithm for finding the maximal form: The input lines start in a todo set and there is an empty done set. As long as there are lines in the todo set, take one of them. If it is dominated by some other line in either set, discard it. Otherwise insert it into the done set and insert all combinations of it and lines in the done set into the todo set.
 
-The mechanized proof covers this algorithm as well, as you'll see in section~\ref{mechproof}.
-
 
 \section{Type theory as mathematical foundation}
-
-\begin{listing}[h]
-\begin{minted}{Coq}
-Definition maximal x := valid x ∧ ∀ y, valid y -> ~ x ⊂ y.
-
-Theorem maximize_works : ∀ x, x \in maximized <-> maximal x.
-\end{minted}
-\caption{The final theorem that states that a line is in the result of maximization if and only if it is maximal.}
-\end{listing}
-
-The proofs involve many boring details, which this thesis does not cover. However, I will show examples of the most important proof techniques used. The full source code can be found in the project's repository~\cite{source_code}.
 
 \subsection{Dependent types}\label{dependent}
 
@@ -758,13 +745,21 @@ Lemma tnth_zip n S T (a : n.-tuple T) (b : n.-tuple S) i :
 
 Lemmas in Coq are types. Constructing any value of type T proves the lemma T.
 
-You are allowed to use values in types in order to make talking about computation convenient. This is called dependent types. Coq solves this with cumulative universes.
-
 In Coq it is customary not to assume the law of excluded middle $\forall a : a \lor \lnot a$. This has little effect on the proof at hand, as it is about finite objects. For those a = b is equivalent to a == b and the latter is always true or false, as it can be computed.
+
 
 \section{Mechanized proof}\label{mechproof}
 
-I have formalized the proof presented in Section~\ref{nlproof} and an implementation of maximization in Coq. I've written a proof of that implementation's correctness.
+\begin{listing}[h]
+\begin{minted}{Coq}
+Theorem is_maximal_form_works :
+  is_maximal_form <->
+  (∀ x : line, nonzero x -> [exists y in input, perm_eq x y] <-> maximal x).
+\end{minted}
+\caption{The final theorem that states that \icoq{is_maximal_form} returns true only iff the input consists of the maximal lines.}
+\end{listing}
+
+I have formalized the proof presented in Section~\ref{nlproof} and an implementation of maximality checking in Coq. I've written a proof of that implementation's correctness. The proofs involve many boring details, which this thesis does not cover. However, I will show examples of the most important proof techniques used.
 
 This section is written for a reader that has some familiarity with statically typed functional programming but hasn't used Coq. I would encourage readers that have already written some mechanized proofs of their own to study the proof's source code~\cite{source_code} along with the natural language proof (Section~\ref{nlproof}) that closely follows it.
 
