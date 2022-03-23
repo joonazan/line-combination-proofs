@@ -838,11 +838,15 @@ There is an adversarial input that defeats this algorithm. Just concatenate mult
 
 To check maximality with the new algorithm, one has to combine every pair of lines in every possible way and compare the results to the original lines.
 
-The lines can be combined in $n^2\Delta!$ different ways. However, most of those ways result in lines that can be discarded because they contain an empty set or because they are dominated by the original lines or some other combination. Computing the combinations is feasible even for large $\Delta$ when the lines contain many duplicated sets because in that case the order of the duplicated elements has no effect on the outcome. This seems to happen often in practice. However, it is an open question if it is possible to design an algoritm that does not have a factorial worst case.
+The lines can be combined in $n^2\Delta\Delta!$ different ways, $n^2$ ways to choose lines, $\Delta!$ ways to match them up and $\Delta$ ways to choose which pair to take the union of. However, most of those ways result in lines that can be discarded because they contain an empty set or because they are dominated by the original lines or some other combination.
+
+Computing the combinations is feasible even for large $\Delta$ when the lines contain many duplicated sets because in that case the order of the duplicated elements has no effect on the outcome. This seems to happen often in practice. However, it is an open question if it is possible to design an algoritm that does not have a factorial worst case.
 
 Comparing two lines can be done by building a bipartite graph where each bipartition represents one of the lines and connecting one side's sets to every set on the other side that is included in them. If there is a perfect matching, one line dominates the other. Bipartite perfect matching can be solved in $O(\Delta^{2.5})$ via the Hopcroft-Karp algorithm. In practice it seems that a backtracking search can be faster but that could be asymptotically worse.
 
-The resulting time complexity is $O(n^{3}\Delta!\Delta^{2.5})$. Notably, the size of the alphabet has no effect on running time anymore.
+The resulting time complexity is $O(n^2\Delta\Delta!n\Delta^{2.5}) = O(n^3\Delta!)$. Notably, the size of the alphabet has no effect on running time anymore.
+
+In practical implementations there are tricks for quickly discarding most results of line combination, so the power of $n$ is closer to 2 than 3. But I haven't proved that.
 
 \subsection{In practice}
 
