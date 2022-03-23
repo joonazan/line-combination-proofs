@@ -118,7 +118,7 @@ Testing can be used to verify the correctness of programs that take a small fini
 
 Fuzzing means running software against computer-generated inputs. AFL-fuzz~\cite{AFL} is a highly optimized fuzzer that monitors program execution in order to find inputs that trigger previously unexplored execution paths. It has been used to find intricate bugs even in complex software.
 
-One crash that I have found by fuzzing was caused by code that assumed that one can compute the absolute value of any machine integer. However, taking the absolute value of the smallest representable integer (for example -128 for 8-bit integers) lead to undefined behaviour because there is always one negative integer more than there are positive integers in two's complement.
+One crash that I have found by fuzzing was caused by code that assumed that one can compute the absolute value of any machine integer. However, taking the absolute value of the smallest representable integer (for example -128 for 8-bit integers) leads to undefined behaviour because there is always one negative integer more than there are positive integers in two's complement.
 
 Fuzzing is best at finding crashes but it can be used to find incorrect behaviour by writing a program that crashes whenever an incorrect output is produced. However it is only effective if outputs can be computed and checked very quickly.
 
@@ -128,7 +128,7 @@ Formal proof can establish correctness of algorithms even for arbitrarily large 
 
 Perharps the most notable example is Thomas Hales' proof of the Kepler conjecture. The Kepler conjecture states that there is no way of packing spheres more densely than the cannoball packing, in which the spheres are arranged in hexagonally packed layers and those layers are stacked on top of each other. In 1831, Gauss proved a proposition about polynomials that can be used to show that a variant of the aforementioned packing is the densest possible lattice packing of spheres.~\cite{dichteste} However, before Hales' proof the possibility of a denser irregular packing wasn't ruled out.
 
-A proof consisting of a computer program that solves linear programming problems and hundreds of pages of notes was completed in 1998. After four years of inspecting the proof, a panel of twelve referees announced that they couldn't be completely certain if the computer calculations are correct. That prompted Hales to start the Flyspeck project, which completed a complete formal proof of the Kepler conjecture in 2014.
+A proof consisting of a computer program that solves linear programming problems and hundreds of pages of notes was completed in 1998. After four years of inspecting the proof, a panel of twelve referees announced that they couldn't be completely certain if the computer calculations were correct. That prompted Hales to start the Flyspeck project, which completed a complete formal proof of the Kepler conjecture in 2014.
 
 Pitäisiköhän tästä kertoa enemmän?
 
@@ -609,39 +609,43 @@ The proofs involve many boring details, which this thesis does not cover. Howeve
 
 \subsection{Dependent types}\label{dependent}
 
-Without dependent types, Coq would be useless. For instance, exists quantifiers in Coq create $\Sigma$-types. Thus it is prudent to study dependent types if one wishes to understand the type theory flavour of proof assistants.
-
-\subsubsection{Type algebra}
+A dependently typed programming language can express types that depend on values as opposed to simply typed languages, where types and values are entirely separate. Without dependent types, Coq would be useless. For instance, exists quantifiers in Coq create $\Sigma$-types, which do not exist in simply typed languages. Thus it is prudent to study dependent types if one wishes to understand the type theory flavour of proof assistants.
 
 Most programmers are familiar with the notation $e : T$ which is read as expression $e$ has type $T$. This is analogous to set membership in set theory if $T$ is seen as the set of all values that $e$ could have. Types are not sets and don't always behave in the same way but the algebraic operations presented next will look very similar for both. Notably, types don't support union and intersection like sets do.
 
-Types that are checked at runtime, found for example in Python are not the same thing. In Python, the same expression can have a different type on different runs; in statically typed languages every expression has just one principal type.
+Types that are checked at runtime, found for example in Python are not the same thing. In Python, the same expression can have a different type on different runs; in statically typed languages every expression has just one type, which can be computed without running the program. In dependently typed languages the parts of the program that appear in types may have to be evaluated during type checking.
 
-The unit type $1$ is a type with only one inhabitant, commonly denoted as the empty tuple $()$. The type $0$ is a type that no value has. It should not be confused with void in C, which is actually $1$. If a function's return type is $0$, the function must never return, as it is impossible to construct a value of type $0$.
+\subsubsection{Type algebra}
+
+The unit type $1$ is a type with only one inhabitant, commonly denoted as the empty tuple $()$. The type $0$ is a type that no value has. It should not be confused with \textbf{void} in C, which is actually $1$. If a function's return type is $0$, the function must never return, as it is impossible to construct a value of type $0$.
 
 Values of a product type $A \times B$ consist of an $a : A$ followed by a $b : B$. The cartesian product is the corresponding set operation. Many programming languages have a tuple type, which is a pure product type. Record or struct types are common named variants of product types. In most cases, they could be replaced with tuples; the names are only for making them more readable.
 
-Values of a sum type $A + B$ are either of type $A$ or of type $B$. The corresponding set operation is the disjoint union. A disjoint union is a union where the elements are augmented with an index indicating the set from which set they originate. In programming, this is known as tagged union. Enumerations are the simplest example; booleans could be written $1 + 1$, though it is more concise to call them $2$. Optionals found in Rust or Scala among others, are of the form $T + 1$. Structurally typed unions, an intermediate between C's wildly unsafe unions and tagged unions is found in gradually typed languages like TypeScript and in the joke language IntercalScript~\cite{ICS}.
+Values of a sum type $A + B$ are either of type $A$ or of type $B$. The corresponding set operation is the disjoint union. A disjoint union is a union where the elements are augmented with an index indicating the set from which set they originate. In programming, this is known as tagged union. Enumerations are the simplest example; booleans could be written $1 + 1$, though it is more concise to call them $2$. A tagged union with zero variants cannot be constructed so it is $0$. Optionals found in Rust or Scala among others, are of the form $T + 1$. Structurally typed unions, an intermediate between C's wildly unsafe unions and tagged unions is found in gradually typed languages like TypeScript and in the joke language IntercalScript~\cite{ICS}.
 
 Knowing this much type algebra is sufficient to understand why the two kinds of dependent types are called $\Pi$ and $\Sigma$-types but I'll go on to show that types equipped with the previously defined sum and product form a semiring to highlight that there truly is an algebra of types.
+
+I have many times found myself wondering if I should write a data structure $A \times (B + C)$ or $(A \times B) + (A \times C)$ when it isn't entirely clear if $A$ really represents the same thing in both cases. I am not aware of any programming language where such \emph{isomorphic types} can be used interchangeably. Incidentally, in Coq $((1, 2), 3)$ is equal to $(1, 2, 3)$ but $(1, (2, 3))$ has a different type.
 
 \begin{theorem}
   The operations $+$ and $\times$ form a semiring on the isomorphism classes of types.
 \end{theorem}
 
 \begin{proof}
-  It is clear that $+$ is associative and commutative. Its neutral element is $0$; a variant holding zero will never be constructed, so an added $0$ does nothing. Also note that a tagged union with zero variants cannot be constructed so it is $0$.
+  It is clear that $+$ is associative and commutative. Its neutral element is $0$; a variant holding zero will never be constructed, so an added $0$ does nothing.
 
   We can translate between $((a, b), c)$ and $(a, (b, c))$, so $\times$ is associative. The neutral element of $\times$ is $1$, as it doesn't add any information, like struct padding in C.
 
   Distributivity: $A \times (B + C) \cong (A \times B) + (A \times C)$. As discussed earlier, $0$ is impossible to construct, so a tuple containing it is, too: $A \times 0 = 0$.
 \end{proof}
 
-I have many times found myself wondering if I should write a data structure $A \times (B + C)$ or $(A \times B) + (A \times C)$ when it isn't entirely clear if $A$ really represents the same thing in both cases. I am not aware of any programming language where isomorphic types can be used interchangeably. Incidentally, in Coq $((1, 2), 3)$ is equal to $(1, 2, 3)$ but $(1, (2, 3))$ has a different type.
-
 Finding an isomorphism, a one-to-one mapping, is equivalent to showing that two sets have the same cardinality, so finite types can be identified by natural numbers. We already saw the types $0$, $1$ and $2$. For finite types, one could just have stated that $|A + B| = |A| + |B|$ and $|A \times B| = |A||B|$ and used the fact that natural numbers form a semiring. The problem with non-finite types is that depending on the type system, they may not correspond to ordinals or any other well-known kind of integers.
 
-From the cardinality point of view, it is easy to see that the arrow $\to$ in function types corresponds to exponentiation; a function is just a table of outputs with an entry for each input. $|A \to B| = |B|^{|A|}$.
+From the cardinality point of view, it is easy to see that the arrow $\to$ in function types corresponds to exponentiation; a function is just a table of outputs with an entry for each input.
+\begin{equation*}
+  |A \to B| = |B|^{|A|}
+\end{equation*}
+A table of things of type $T$ is just $T$ raised to some power.
 
 Inductive types have interesting equations, for example
 \begin{align*}
@@ -651,9 +655,7 @@ is a solution to
 \begin{align*}
   \text{List} &= (A \times \text{List}) + 1
 \end{align*}
-Conor McBride~\cite{typeDerivative} has even shown that the partial derivative of a type is a data structure representing an in-progress traversal of it.
-
-A dependently typed programming language can express types that depend on values. Two new constructs, $\Pi$-types and $\Sigma$-types can be used to model all such dependencies.
+which is the typical definition of a list in functional programming languages. Conor McBride~\cite{typeDerivative} has even shown that the partial derivative of a type is a data structure representing an in-progress traversal of it.
 
 \subsubsection{Dependent functions}
 
@@ -676,7 +678,9 @@ Fixpoint sumt (n : nat) (nats : nat^n) :=
   end nats.
 \end{minted}
 
-Why is it called a $\Pi$-type? A type $\Pi_{e:T}~D(e)$ could be seen as the image $D[T]$, which contains the value of $D$ for all values that $e$ can take. That image is a product type, and products on numbers are denoted with $\Pi$.
+The universal quantifier \icoq{forall x : T, P x} is another way to write a $\Pi$-type in Coq.
+
+Why is it called a $\Pi$-type? A type $\Pi_{e:T}~D(e)$ could be seen as the image $D[T]$, which contains the value of $D$ for all values that $e$ can have. That image is a product type, which is denoted with $\Pi$ just like products on numbers.
 
 \subsubsection{Dependent pairs}
 
@@ -692,6 +696,16 @@ Explicit $\Sigma$-types are called dependent pairs by programmers. The Coq stand
 \end{minted}
 
 Viewed as a proposition, $\Sigma_{x:T}~P(x)$ corresponds to $\exists x : P(x)$.
+
+\subsubsection{Other exotic types}
+
+$\Sigma$ and $\Pi$-types are not the only kinds of new types that can exist in dependent type theories.~\cite{hofmann1997syntax} For instance Rathjen~\cite{griffor1994strength} has shown that extending Martin-Löf type theory with well-founded tree types makes it a significantly stronger proof system.
+
+Coq's \icoq{Inductive} definitions can be used to define many kinds of dependent types but not all of them; for example higher inductive types are not supported.
+
+\subsubsection{Universes}
+
+TODO
 
 \subsection{Why Coq}
 
@@ -862,7 +876,7 @@ The resulting time complexity is $O(n^{3}\Delta!\Delta^{2.5})$. Notably, the siz
 
 \subsection{In practice}
 
-I and Dennis Olivetti both implemented the new algoritm in the Rust programming language. TODO link to them.
+I and Dennis Olivetti both implemented the new algorithm in the Rust programming language. TODO link to them.
 
 Both implementations compare new lines against other lines originating from the same pair of lines before comparing against the rest. This is worthwhile based on the assumption that many of the new lines are just inferior versions of the best lines of that batch.
 
