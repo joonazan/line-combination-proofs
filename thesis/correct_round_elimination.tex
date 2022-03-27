@@ -725,6 +725,14 @@ Theorem is_maximal_form_works :
 
 Coq is a combination of the pure functional programming language Gallina and Ltac, an untyped logic programming language used to generate Gallina.
 
+\subsection{Inductive definitions}
+
+An \icoq{Inductive} definition in Coq is very similar to what is known as a generalized algebraic data type (GADT) in Haskell.
+
+Type constructors in general can be thought of as opaque functions that can be performed in reverse. GADTs make this explicit, as they are defined by writing the type of each type constructor.
+
+TODO
+
 \subsection{Totality}
 
 Every function in Gallina is \emph{total}, which means that all programs eventually complete without crashing if executed on correct hardware with a sufficient amount of memory.
