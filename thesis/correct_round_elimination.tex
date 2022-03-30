@@ -712,7 +712,7 @@ TODO
 
 \section{Mechanized proof}\label{mechproof}
 
-I have formalized the proof presented in Section~\ref{nlproof} and an implementation of maximality checking in Coq. I've written a proof of that implementation's correctness. The proofs involve many boring details, which this thesis does not cover. However, I will show examples of the most important proof techniques used.
+I have formalized the proof presented in Section~\ref{nlproof} and an implementation of maximality checking in Coq. I've written a proof of that implementation's correctness. The proofs involve many boring details, which this thesis does not cover. However, I will show examples of the most important techniques used.
 
 This section is written for a reader that has some familiarity with statically typed functional programming but hasn't used Coq. I would encourage readers that have already written some mechanized proofs of their own to study the proof's source code~\cite{source_code} along with the natural language proof (Section~\ref{nlproof}) that closely follows it.
 
@@ -725,9 +725,7 @@ Theorem is_maximal_form_works :
 \caption{The final theorem that states that \icoq{is_maximal_form} returns true only iff the input consists of the maximal lines.}
 \end{listing}
 
-\subsection{What is Coq?}
-
-Coq is a combination of the pure functional programming language Gallina and Ltac, an untyped logic programming language used to generate Gallina.
+Coq is a combination of the pure functional programming language Gallina and Ltac, an untyped logic programming language used to generate Gallina. I will discuss topics related to Gallina first, which is mostly relevant to the definition of theorems and then move on to Ltac which is what all my proofs are written in.
 
 \subsection{Inductive definitions}
 
@@ -806,6 +804,43 @@ The helper lemma is proved by performing induction on weight and applying the le
   Lemma strictly_dominates_weight (a b : line) : a ⊂ b -> weight a < weight b.
 \end{minted}
 relating weight to strict domination. With well-foundedness proved, we can use the \icoq{well_founded_induction} from the standard library in \icoq{combination_is_complete}.
+
+\subsection{Ltac}
+
+TODO
+
+\subsection{Mathematical components}
+
+Dealing with permutations seemed like something that could benefit from existing theories, so I switched to the Mathematical components library at that point. It was originally created as part of a formal proof of the Four color theorems. It contains theorems about abstract algebra and common data structures.
+
+Mathematical components is built on the ssreflect library, which has a strong opinion on how Coq proofs should be written and provides utilities for writing in that particular style. I have adopted this style in my proof.
+
+An important idea in ssreflect is that every proposition is written as a boolean expression and converted into the most suitable form via a reflection view when necessary.~\cite{mathcompbook} This is good because it makes you think about how you want to proceed with the proof instead of just blindly destructing every conjunction and splitting every disjunction. However, often that is precisely what needs to be done and in that case ssreflect only creates more work.
+
+The big upside of converting between booleans and propositions is that booleans are excellent for doing case analysis or even proofs via computation. Suppose we would like to separately prove the case where $a$ is equal to $b$ and the case where they differ. Via small-scale reflection we can view their equality as a boolean and perform case analysis on it. In conventional Coq, one would have to write a function for the type of a and b that either returns that its arguments are equal or that they are not. For equality, the standard library defines a tactic \icoq{decide equality} that fills in the body of such a function but that only works for equality. Ssreflect provides reflection conversions between boolean and propositional forms of equality, implication, negation and quantifiers among others.
+
+Ssreflect also focuses on maintainability of proofs. A small change somewhere could invalidate a proof. Because many tactics never produce an error, code that previously completed a subgoal may leave that goal incomplete, causing weird errors in the tactics that were meant to be applied to the next goal. To prevent this, ssreflect advocates the \icoq{by} tactical, which produces an error if the tactic following it does not discharge a goal.
+
+Another issue that ssreflect attempts to remedy is that most of the standard tactics in Coq create assumptions with automatically generated names. The names can be confusing and the only way to find out where some assumption \icoq{H1} is coming from is to step backwards in the proof until it dissapears. Because names are assigned sequentially, changing the beginning of a proof can change the name of every assumption, leading to a lot of tedious renaming.
+
+Ssreflect's solution to naming is to add new assumptions to the goal so they do not immediately need a name. After adding an assumption \icoq{X} to a goal \icoq{G}, the new goal is \icoq{X -> G}. There are many bookkeeping tactics to rearrange the chain of implications like the stack in a language like FORTH.\@To allow the user to completely avoid automatic naming, ssreflect contains its own set of tactics that replaces almost all standard tactics.
+
+When shuffling assumptions around isn't enough, they can be removed from the goal and named with the \icoq{=>} tactical, which can be appended to any tactic. For example, to name two assumptions produced by the tactic \icoq{tac}, one could write \icoq{tac => a b.} There is in fact a pretty rich language that one can use after the arrow. Most importantly, breaking products into their parts is done with a pair of square brackets and applying a function or reflection view is done with a slash. For example \icoq{/andP[a b]} takes the first assumption in the stack, turns it from a boolean and to a propositional and, splits it into two assumptions and names them \icoq{a} and \icoq{b}.
+
+Instead of manual naming, Chlipala~\cite{CPDT} prefers to write very short, almost completely automated proofs. They are maintainable because they do not refer to named assumptions, instead defining automated procedures for processing certain shapes of goals or assumptions. My attempts at that level of automation haven't been very successful but I can see that my proof could be significantly shorter if some of the more trivial work was automated. Proofs with both heavy automation and cleaner presentation in the style of ssreflect could even be somewhat readable.
+
+A significant downside of Mathematical components is that it defines its own version of everything. Even the \icoq{nat} in ssreflect is incompatible with the standard library's \icoq{nat}. Because of this standard \icoq{lia} tactic, which automatically solves linear integer arithmetic (equations involving comparison, addition and multiplication with constants) can only be used after converting every expression to the equivalent on standard nats. I solved this problem by writing a tactic called liafy that converts a subset of mathematical operations.
+
+\begin{minted}{Coq}
+  Ltac liafy := rewrite -?(rwP leP) -?(rwP ltP) -?(rwP negP) -?(rwP eqP) -?plusE.
+  Ltac sslia := liafy; lia.
+\end{minted}
+
+Thanks to Mathematical components I didn't have to write any data structures myself, which makes me think that it is well suited for people who know abstract algebra very well but know little about programming. Writing the basic operations on a data structure in Coq can be very unintuitive especially because the convoy pattern~\cite{CPDT} is often necessary.
+
+For example, when pattern matching on an array's length, the code in the match arm corresponding to zero still doesn't know that the array is empty. It seems that there is no way around it other than proof mode but actually one can very tediously annotate the pattern match, which makes it work in the desired way.
+
+Pattern matching in many other languages is much easier to use but they typically rely on axiom K for pattern matching, limiting the settings the language can be used in; for example, Homotopy type theory's Univalence axiom is incompatible with axiom K. Cockx et al.~\cite{withoutK} developed and formally proved a version of dependent pattern matching without K in 2014 that is available in Agda today.
 
 \subsection{Some Section}
 
@@ -954,21 +989,7 @@ The formalization of round elimination uses many data structures and proofs prov
 
 Let's take the definition of \icoq{n.-tuple}, a fixed size list, as an example. It is simply a wrapper around a list and a proof that the list's length is \icoq{n}.
 
-\subsection{Formalization methods}
-
-A lot of tedium was involved in formalizing the proofs. I was able to prove very quickly that the result of combining two lines doesn't produce any new colorings. Dealing with the ability to shuffle the lines into any order before combining seemed like something that could benefit from existing theories, so I switched to the mathematical components library at that point.
-
-Explain how ssreflect and math-comp relate to each other
-
-An important idea in math-comp is that every proposition is written as a boolean expression and converted into the most suitable form via a reflection view when necessary.~\cite{mathcompbook} This is good because it makes you think about how you want to proceed with the proof instead of just blindly destructing every conjunction and splitting every disjunction. However, often that is precisely what needs to be done and in that case ssreflect only creates more work.
-
-The big upside of converting between booleans and propositions is that booleans are excellent for doing case analysis or even proofs via computation. Suppose we would like to consider cases where a equals b and where it does not separately. Via small-scale reflection we can view their equality as a boolean and perform case analysis on it. In conventional Coq, one would have to write a function for the type of a and b that either returns that its arguments are equal or that they are not. For equality, the standard library defines a tactic \icoq{decide equality} that fills in the body of such a function but that only works for equality.
-
-Tuple pain
-
-Automation doesn't work with ssr pain (especially lia)
-
-Convoy pattern pain. Code doesn't contain match due to math-comp!
+TODO
 
 \subsection{A verified Round Eliminator}
 
