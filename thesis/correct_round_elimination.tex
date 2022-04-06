@@ -727,6 +727,74 @@ Theorem is_maximal_form_works :
 
 Coq is a combination of the pure functional programming language Gallina and Ltac, an untyped logic programming language used to generate Gallina. I will discuss topics related to Gallina first, which is mostly relevant to the definition of theorems and then move on to Ltac which is what all my proofs are written in.
 
+\subsection{Notations}
+
+Gallina very closely resembles OCaml, the language Coq is implemented in. The main syntactic difference is that top-level definitions start with a capital keyword like \icoq{Lemma} and end with a full stop. Still, Coq source code can look more exotic than OCaml because it is very easy to extend the syntax of Gallina.
+
+My code uses the syntax defined in Mathematical components, for instance \icoq{n.-tuple T} is a length $n$ array with elements of type $T$ and \icoq{'I_n} is the type of integers from zero to $n-1$.
+
+I define some binary operators for convenience: $\subseteq$ to denote domination, $\subset$ for strict domination and $\in$ to denote that a line contains a coloring.
+\begin{minted}{Coq}
+  Notation "a ⊆ b" := (dominates b a) (at level 50, no associativity).
+\end{minted}
+
+Notations are not limited to binary operations or fixed size syntax. For example the list literal \icoq{[a; b; c]} is defined as a notation.
+
+\subsection{Variables}
+
+Variables like
+\begin{minted}{Coq}
+  Variable alphabet_size: nat.
+\end{minted}
+can be used in function definitions within the current section. If a function that uses them, even indirectly, is called from another section the variables need to be given as arguments.
+
+For example, my definition of the type \icoq{color}
+\begin{minted}{Coq}
+  Definition color := 'I_alphabet_size.
+\end{minted}
+uses \icoq{alphabet_size}. My definition of configurations
+\begin{minted}{Coq}
+  Definition configuration := Δ.-tuple color.
+\end{minted}
+uses \icoq{color}. Now configuration takes \icoq{alphabet_size} (and \icoq{delta_minus_one}) as arguments, even though the definition has no parameters.
+
+Variables are very convenient; without them I would have to explicitly make almost every lemma depend on the alphabet size and graph degree.
+
+I use the variable \icoq{delta_minus_one} instead of $\Delta$ to ensure that $\Delta$ is positive. That way I do not need to deal with the uninteresting case where vertices are not connected at all. I could instead add \icoq{Variable nonzero_delta := Δ <> 0} but then I would have to explicitly use it every time to eliminate the zero case.
+
+Encoding a natural number that is at least $k$ as $n + k$ composes very well. For example calling a function that needs something of size $m + 1$ with something of size $n + 2$ works. Both Coq's default nats and ssreflect's nats are Peano numbers, so in the aforementioned scenario the type inference engine has to unify \icoq{S m} with \icoq{S (S n)}, which results in a substitution of \icoq{m} by \icoq{S n}.
+
+\subsection{Representation of lines}
+
+I chose to represent lines and configurations as tuples, so their lack of order is simulated by operating on some permutation instead of the actual line. This choice of representation isn't ideal as discussed in Section~\ref{badds}.
+
+Containing a configuration and combining two lines are both defined as a procedure operating on two ordered lines and a predicate that applies the procedure to permutations of the lines.
+
+\begin{minted}{Coq}
+Definition contains_unpermuted (cl: configuration) (l: line) : bool :=
+  all2 (λ c (s : {set color}), c \in s) cl l.
+
+Definition contains (cl : configuration) (line : line) : bool :=
+  [exists (p : configuration | perm_eq p cl), contains_unpermuted p line].
+
+Notation "a ∈ L" := (contains a L) (at level 50, no associativity).
+\end{minted}
+
+The choice of permuting the configuration in \icoq{contains} is arbitrary. Proving \icoq{perm_eq s s' -> a ∈ s = a ∈ s'} would be a lot easier if the line was permuted, so it could be argued that a symmetric definition where a permutation of the configuration is compared against a permutation of the line would be best.
+
+\begin{minted}{Coq}
+Definition combine m (n := m.+1) (a : n.-line) (b : n.-line) : n.-line :=
+  [tuple of (thead a) :|: (thead b)
+  :: map (λ ab, ab.1 :&: ab.2) (zip (behead a) (behead b))
+  ].
+
+Definition combination_of (a b c : line) :=
+  ∃ (a' b' c' : line),
+    perm_eq a' a ∧ perm_eq b' b ∧ perm_eq c' c ∧ combine a' b' = c'.
+\end{minted}
+
+Because I never perform case analysis on \icoq{combination_of}, it is defined as a proposition, whereas contains is defined as a decision procedure.
+
 \subsection{Inductive definitions}
 
 An \icoq{Inductive} definition in Coq is very similar to what is known as a generalized algebraic data type (GADT) in Haskell.
@@ -803,7 +871,7 @@ The helper lemma is proved by performing induction on weight and applying the le
 \begin{minted}{Coq}
   Lemma strictly_dominates_weight (a b : line) : a ⊂ b -> weight a < weight b.
 \end{minted}
-relating weight to strict domination. With well-foundedness proved, we can use the \icoq{well_founded_induction} from the standard library in \icoq{combination_is_complete}.
+relating weight to strict domination. With well-foundedness proved, we can use \icoq{well_founded_induction} from the standard library in \icoq{combination_is_complete}.
 
 \subsection{Ltac}
 
@@ -811,13 +879,21 @@ TODO
 
 \subsection{Mathematical components}
 
-Dealing with permutations seemed like something that could benefit from existing theories, so I switched to the Mathematical components library at that point. It was originally created as part of a formal proof of the Four color theorems. It contains theorems about abstract algebra and common data structures.
+Dealing with permutations seemed like something that could benefit from existing theories, so I switched to the Mathematical components (math-comp) library at that point. It was originally created as part of a formal proof of the Four color theorems. It contains theorems about abstract algebra and common data structures.
 
-Mathematical components is built on the ssreflect library, which has a strong opinion on how Coq proofs should be written and provides utilities for writing in that particular style. I have adopted this style in my proof.
+Mathematical components is built on the small-scale reflection (ssreflect) library, which has a strong opinion on how Coq proofs should be written and provides utilities for writing in that particular style. I have adopted this style in my proof.
 
-An important idea in ssreflect is that every proposition is written as a boolean expression and converted into the most suitable form via a reflection view when necessary.~\cite{mathcompbook} This is good because it makes you think about how you want to proceed with the proof instead of just blindly destructing every conjunction and splitting every disjunction. However, often that is precisely what needs to be done and in that case ssreflect only creates more work.
+\subsubsection{Reflection views}
 
-The big upside of converting between booleans and propositions is that booleans are excellent for doing case analysis or even proofs via computation. Suppose we would like to separately prove the case where $a$ is equal to $b$ and the case where they differ. Via small-scale reflection we can view their equality as a boolean and perform case analysis on it. In conventional Coq, one would have to write a function for the type of a and b that either returns that its arguments are equal or that they are not. For equality, the standard library defines a tactic \icoq{decide equality} that fills in the body of such a function but that only works for equality. Ssreflect provides reflection conversions between boolean and propositional forms of equality, implication, negation and quantifiers among others.
+An important idea in ssreflect is that every proposition is written as a boolean expression and converted into the most suitable form via a reflection view when necessary.~\cite{mathcompbook}
+
+The boolean form is excellent for case analysis and proofs via computation. Case analysis on propositional forms isn't possible without adding the law of excluded middle $\forall a : a \lor \lnot a$ as an axiom. It is common to avoid axioms if possible in Coq because not all axioms are compatible with each other.
+
+Suppose we would like to separately prove the case where $a$ is equal to $b$ and the case where they differ. Via small-scale reflection we can view their equality as a boolean and perform case analysis on it. In conventional Coq, one would have to write a function for the type of a and b that either returns that its arguments are equal or that they are not. For equality, the standard library defines a tactic \icoq{decide equality} that fills in the body of such a function but that only works for equality. Ssreflect provides reflection conversions between boolean and propositional forms of equality, implication, negation and quantifiers among others.
+
+The propositional forms are useful because unlike the boolean forms, they are data structures that can be operated on. An assumption that is a conjunction can be broken down into two assumptions. Case analysis can be performed on a disjunction. Propositional equalities can be used to rewrite.
+
+\subsubsection{The ssreflect proof language}
 
 Ssreflect also focuses on maintainability of proofs. A small change somewhere could invalidate a proof. Because many tactics never produce an error, code that previously completed a subgoal may leave that goal incomplete, causing weird errors in the tactics that were meant to be applied to the next goal. To prevent this, ssreflect advocates the \icoq{by} tactical, which produces an error if the tactic following it does not discharge a goal.
 
@@ -841,94 +917,6 @@ Thanks to Mathematical components I didn't have to write any data structures mys
 For example, when pattern matching on an array's length, the code in the match arm corresponding to zero still doesn't know that the array is empty. It seems that there is no way around it other than proof mode but actually one can very tediously annotate the pattern match, which makes it work in the desired way.
 
 Pattern matching in many other languages is much easier to use but they typically rely on axiom K for pattern matching, limiting the settings the language can be used in; for example, Homotopy type theory's Univalence axiom is incompatible with axiom K. Cockx et al.~\cite{withoutK} developed and formally proved a version of dependent pattern matching without K in 2014 that is available in Agda today.
-
-\subsection{Some Section}
-
-\begin{listing}[h]
-\begin{minted}{Coq}
-Lemma tnth_zip n S T (a : n.-tuple T) (b : n.-tuple S) i :
-  tnth (zip_tuple a b) i = (tnth a i, tnth b i).
-\end{minted}
-\caption{A very simple utility lemma which states that zipping two arrays of the same length and taking the $i$th item produces a tuple with the $i$th item of the first array and the $i$th item of the second list.}
-\end{listing}
-
-Lemmas in Coq are types. Constructing any value of type T proves the lemma T.
-
-In Coq it is customary not to assume the law of excluded middle $\forall a : a \lor \lnot a$. This has little effect on the proof at hand, as it is about finite objects. For those a = b is equivalent to a == b and the latter is always true or false, as it can be computed.
-
-\subsection{Constants and variables}
-
-\begin{listing}[h]
-\begin{minted}{Coq}
-Variable alphabet_size: nat.
-Definition color := 'I_alphabet_size.
-Variable delta_minus_one: nat.
-Definition Δ := delta_minus_one.+1.
-
-Definition nline n := n.-tuple {set color}.
-Notation "n .-line" := (nline n) (at level 30, no associativity).
-Definition line := Δ.-line.
-Definition configuration := Δ.-tuple color.
-\end{minted}
-\caption{Definition of lines and configurations used throughout the proof.}
-\end{listing}
-
-Variables like \icoq{alphabet_size} automatically become arguments of any function that uses them in Coq. They are very convenient here, as I would otherwise have to explicitly make many lemmas depend on the alphabet size and $\Delta$.
-
-I use \icoq{delta_minus_one} to ensure that $\Delta$ is positive. That way I do not need to deal with the uninteresting case where vertices are not connected at all. I could instead add \icoq{Variable nonzero_delta := Δ <> 0} but then I would have to explicitly use it every time to eliminate the zero case.
-
-\begin{listing}[h]
-\begin{minted}{Coq}
-Definition contains_unpermuted (cl: configuration) (l: line) : bool :=
-  all2 (λ c (s : {set color}), c \in s) cl l.
-
-Definition contains (cl : configuration) (line : line) : bool :=
-  [exists (p : configuration | perm_eq p cl), contains_unpermuted p line].
-
-Notation "a ∈ L" := (contains a L) (at level 50, no associativity).
-\end{minted}
-\caption{Lines are represented as tuples, so their lack of order is simulated, typically by operating on some permutation instead of the actual line.}
-\end{listing}
-
-\subsection{Combining lines}
-
-My new maximization algorithm mostly consists of combining lines. Two lines can be combined by pairing up their sets and taking the union of one pair and the intersection of the rest.
-
-\begin{minted}{Coq}
-Definition combine m (n := m.+1) (a : n.-line) (b : n.-line) : n.-line :=
-  [tuple of (thead a) :|: (thead b)
-  :: map (λ ab, ab.1 :&: ab.2) (zip (behead a) (behead b))
-  ].
-
-Definition combination_of (a b c : line) :=
-  ∃ (a' b' c' : line),
-    perm_eq a' a ∧ perm_eq b' b ∧ perm_eq c' c ∧ combine a' b' = c'.
-
-Theorem combination_is_sound (a b c : line) col :
-  combination_of a b c -> col ∈ c -> col ∈ a ∨ col ∈ b.
-\end{minted}
-
-Proof: For each configuration \icoq{col} in \icoq{c}, wlog. suppose the symbol that comes from the union is from \icoq{a}. The symbols that come from intersections are in both \icoq{a} and \icoq{b}. Thus all symbols in \icoq{c} are from \icoq{a}.
-
-\subsection{Domination relation}
-
-\begin{minted}{Coq}
-Definition dominates {n} (b a : n.-line) :=
-  [exists a' : n.-line, exists b' : n.-line, perm_eq a a' && perm_eq b b' &&
-    all2 (λ x y : {set color}, x \subset y) a' b'].
-Notation "a ⊆ b" := (dominates b a) (at level 50, no associativity).
-Notation "a ⊈ b" := (~~ dominates b a) (at level 50, no associativity).
-Definition strictly_dominates {n} (b a : n.-line) := (a ⊆ b) && (b ⊈ a).
-Notation "a ⊂ b" := (strictly_dominates b a) (at level 50, no associativity).
-\end{minted}
-
-The strict version of the domination relation is well-founded.
-
-\begin{minted}{Coq}
-Definition strictly_dominated (a b : line) := strictly_dominates b a.
-
-Lemma strictly_dominated_wf : well_founded strictly_dominated.
-\end{minted}
 
 \section{Performance}
 
@@ -983,7 +971,7 @@ My goal was to build a provably correct version of round elimination while also 
 
 The line combination algorithm for maximization delivers on the performance goal and is already in use but the machine-verified procedure for checking maximality needs more work to be of practical use. This section outlines how one could make the maximality checking program practical and how the proof could be extended to cover round elimination or even whole proofs of time complexity upper or lower bounds.
 
-\subsection{Impractical data structures}
+\subsection{Impractical data structures}\label{badds}
 
 The formalization of round elimination uses many data structures and proofs provided by the Mathematical Components library. However, that library is made with pure mathematics in mind; functions using the data structures aren't meant to be executed.
 
