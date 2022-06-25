@@ -142,6 +142,38 @@ TODO cite
 
 TODO This will maybe be just part of the introduction?
 
+\subsection{Proof automation}
+
+Completely formal proofs can be large and repetitive and a minute change in the theorem to be proved can change their shape. Directly constructing proofs by hand seems like a fool's errand. Instead, the bulk of proofs is produced via various forms of code generation.
+
+Most proof assistants read a proof script from disk and generate the proofs anew on every run. The only exception that I'm aware of is Metamath~\cite{MMZero}, in which a simple program checks a proof file that is not human-readable. The proof file is typically produced with untrusted tools, as only the checker needs to be correct.
+
+The other tools prefer human-readable proofs because they are maintainable. You may wonder why a proof needs to be maintainable, as once it is complete, it doesn't need to be modified anymore. The reasons are the same as in software engineering in general: while the proof is in development, there may be unanticipated changes.
+
+As an example, it may turn out that there is a data structure that is easier to work with than the one initially used. \emph{Transporting} the old proofs to the new data structure takes great effort. On the other hand, automated proofs will often work with a different data structure with little to no editing. Besides, if the initial formalization of the mathematical object in question was inaccurate, there is no other option.
+
+\subsubsection{Aside: transporting proofs}
+
+It is very common in mathematics to prove something for one representation of a mathematical object and assume that it is true for all isomorphic representations. This notion, while intuitive is not trivial to formalize and current proof assistants do not support it by default.
+
+An easy way to make a proof that applies to all representations of an object is to write a proof that applies to anything with certain properties. For example, instead of relying on a particular representation of natural numbers, one can write a proof that applies to anything satisfying the Peano axioms. But that makes proofs more difficult as they cannot reap the benefits of any particular representation.~\cite{transferAlongIso}
+
+An important motivation for transporting proofs between representations is \emph{refinement}, replacement of data structures with more efficient ones.~\cite{refinementsFF} In fact, the development discussed in this work would be far more useful were the data structures refined to to ones that are of practical use. This is elaborated on in Section~\ref{badds}.
+
+Unlike other attempts, Univalent foundations~\cite{hottbook} support transporting any function over equivalences. However, it is fundamentally different from the Calculus of Inductive Constructions, the underlying logic of Coq, which is the Coq implementation involves a Univalence axiom. As axioms in Coq have no computational meaning, transported functions cannot be executed, which is not a problem for proof but renders transported executable code useless. There are newer type systems, for instance Cubical type theory~\cite{cubicalTT}, which assign computational meaning to univalence. Equivalences for Free~\cite{equivalencesFF} describes an approach that manages to transport most useful constructs while remaining in Coq.
+
+\subsubsection{Tactics languages}
+
+TODO even Automath had an automation language
+
+\subsubsection{Type classes}
+
+Haskell type classes and Rust traits are an example of code generation in mainstream programming languages. These features select an appropriate function depending on the arguments' types. For example, the Haskell type class Show is implemented for integers and for lists of things that implement Show. These implementations are automatically composed when printing a list of integers.
+
+Canonical structures fullfill a similar purpose to type classes in Coq. A notable difference is that canonical instances are selected via unification. Gonthier et al.~\cite{overloadingCanonical} exploit the fact that Coq only unfolds terms when unification fails to automatically try multiple instances in sequence. By writing instances akin to a logic program, one can automate things like ordering terms correctly in order to apply a lemma.
+
+I don't use this kind of automation in my code, as I only learned about it afterward, but it seems highly useful. Reordering things is easy but code that has to explicitly state the desired order of terms before applying a lemma is tedious and breaks when the reordered expression changes.
+
 \section{Locally Checkable Labeling}
 
 Locally checkable labeling (LCL) is a family of graph problems in which one has to assign colors to edges or vertices, satisfying some locally checkable condition.~\cite{LCL}
@@ -709,7 +741,6 @@ Besides, round elimination is commonly used as a subroutine in proofs, while ope
 
 TODO
 
-
 \section{Mechanized proof}\label{mechproof}
 
 I have formalized the proof presented in Section~\ref{nlproof} and an implementation of maximality checking in Coq. I've written a proof of that implementation's correctness. The proofs involve many boring details, which this thesis does not cover. However, I will show examples of the most important techniques used.
@@ -1005,7 +1036,9 @@ Qed.
 
 These could even be automatically generated by Round Eliminator. In cases where Round Eliminator has performed an expensive brute force search, the result of the search can be embedded into the Coq proof in order to avoid running the slower Coq implementations of the tools a lot.
 
-As part of this thesis I have only verified the difficult part of round elimination, maximization. However, I believe that verifying the other tools in Round Eliminator is trivial after formalizing the hardness of problems in some way, as they do very simple transformations: adding a line makes the problem easier, removing one makes it harder, renaming a symbol to another makes the problem easier, etc. The difficult part is choosing an operation that helps prove a lower bound but that procedure doesn't need to be proved correct.
+As part of this thesis I have only verified the difficult part of round elimination, maximization. Another possibly difficult part which remains unexplored is formalizing the time complexity of distributed problems. Given a formalization of time complexity, verifying the other tools in Round Eliminator is easy, as they do very simple transformations: adding a line makes the problem easier, removing one makes it harder, renaming a symbol to another makes the problem easier, etc.
+
+Choosing an operation that helps prove a lower bound is nontrivial but that procedure does not need to be proved correct. Were a good series of operations found, it would just need to be checked with the verified versions of the Round Eliminator tools.
 
 \clearpage
 \thesisbibliography{}
