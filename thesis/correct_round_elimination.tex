@@ -621,9 +621,11 @@ Theorem~\ref{justtwo} gives an efficient process for checking maximality: if all
 A trivial extension yields an algorithm for finding the maximal form: The input lines start in a todo set and there is an empty done set. As long as there are lines in the todo set, take one of them. If it is dominated by some other line in either set, discard it. Otherwise insert it into the done set and insert all combinations of it and lines in the done set into the todo set.
 
 
-\section{Type theory as mathematical foundation}
+\section{Type theory as mathematical foundation}\label{dependent}
 
-\subsection{Dependent types}\label{dependent}
+TODO Curry-Howard correspondence
+
+\subsection{Dependent types}
 
 A dependently typed programming language can express types that depend on values as opposed to simply typed languages, where types and values are entirely separate. Without dependent types, Coq would be useless. For instance, exists quantifiers in Coq create $\Sigma$-types, which do not exist in simply typed languages. Thus it is prudent to study dependent types if one wishes to understand the type theory flavour of proof assistants.
 
@@ -631,7 +633,7 @@ Most programmers are familiar with the notation $e : T$ which is read as express
 
 Types that are checked at runtime, found for example in Python are not the same thing. In Python, the same expression can have a different type on different runs; in statically typed languages every expression has just one type, which can be computed without running the program. In dependently typed languages the parts of the program that appear in types may have to be evaluated during type checking.
 
-\subsubsection{Type algebra}
+\subsection{Type algebra}
 
 The unit type $1$ is a type with only one inhabitant, commonly denoted as the empty tuple $()$. The type $0$ is a type that no value has. It should not be confused with \textbf{void} in C, which is actually $1$. If a function's return type is $0$, the function must never return, as it is impossible to construct a value of type $0$.
 
@@ -639,7 +641,9 @@ Values of a product type $A \times B$ consist of an $a : A$ followed by a $b : B
 
 Values of a sum type $A + B$ are either of type $A$ or of type $B$. The corresponding set operation is the disjoint union. A disjoint union is a union where the elements are augmented with an index indicating the set from which set they originate. In programming, this is known as tagged union. Enumerations are the simplest example; booleans could be written $1 + 1$, though it is more concise to call them $2$. A tagged union with zero variants cannot be constructed so it is $0$. Optionals found in Rust or Scala among others, are of the form $T + 1$. Structurally typed unions, an intermediate between C's wildly unsafe unions and tagged unions is found in gradually typed languages like TypeScript and in the joke language IntercalScript~\cite{ICS}.
 
-Knowing this much type algebra is sufficient to understand why the two kinds of dependent types are called $\Pi$ and $\Sigma$-types but I'll go on to show that types equipped with the previously defined sum and product form a semiring to highlight that there truly is an algebra of types.
+Knowing this much type algebra is sufficient to understand why the dependent types presented next are called $\Pi$ and $\Sigma$-types but I'll go on to show that types equipped with the previously defined sum and product form a semiring just to highlight that there truly is an algebra of types.
+
+\subsubsection{More type algebra}
 
 I have many times found myself wondering if I should write a data structure $A \times (B + C)$ or $(A \times B) + (A \times C)$ when it isn't entirely clear if $A$ really represents the same thing in both cases. I am not aware of any programming language where such \emph{isomorphic types} can be used interchangeably. Incidentally, in Coq $((1, 2), 3)$ is equal to $(1, 2, 3)$ but $(1, (2, 3))$ has a different type.
 
@@ -673,6 +677,7 @@ is a solution to
 \end{align*}
 which is the typical definition of a list in functional programming languages. Conor McBride~\cite{typeDerivative} has even shown that the partial derivative of a type is a data structure representing an in-progress traversal of it.
 
+\subsection{Examples of dependent types}
 \subsubsection{Dependent functions}
 
 A $\Pi$-type is a type that depends on the value passed in. For example, ordinarily it would be impossible to write a function that sums all entries in a tuple because tuples of different lengths have different types. Using a $\Pi$-type, the function could have the type $\Pi_{n : \mathbb N}~\mathbb N^n \to \mathbb N$.
@@ -719,25 +724,7 @@ $\Sigma$ and $\Pi$-types are not the only kinds of new types that can exist in d
 
 Coq's \icoq{Inductive} definitions can be used to define many kinds of dependent types but not all of them; for example higher inductive types are not supported.
 
-\subsubsection{Universes}
-
-TODO
-
-\subsection{Why Coq}
-
-When I started this project, I chose Coq simply because it is very mature and I knew it to be powerful enough. I now know that type theory based proof assistants like Coq are especially suited to this kind of task because they are capable of \emph{reflection}.
-
-Reflection means that one is allowed to prove something by writing a program that checks it, proving that program correct and then using the program in a proof. The key thing that enables reflection in Coq is that its language Gallina is both a programming language and a logic at the same time.
-
-On the flip side, because of Coq's complexity, there are only relatively weak automatic theorem provers for it.
-
-Certified Programming with Dependent Types~\cite{CPDT} has a chapter that goes through progressively more complicated uses of reflection.
-
-To verify a program in a proof assistant that does not support programming, one has to generate lemmas from the source code that is being verified. The seL4 microkernel~\cite{sel4} has been developed in that fashion, for example. That makes sense because high performance and low level access to hardware is vital when implementing an operating system.
-
-Besides, round elimination is commonly used as a subroutine in proofs, while operating systems are not. Embedding round elimination in Coq makes it possible to prove whole reasoning chains. A verified implementation of round elimination by itself doesn't prevent users from giving it the wrong input.
-
-\subsection{Curry-Howard correspondence}
+\subsection{Universes}
 
 TODO
 
@@ -757,6 +744,24 @@ Theorem is_maximal_form_works :
 \end{listing}
 
 Coq is a combination of the pure functional programming language Gallina and Ltac, an untyped logic programming language used to generate Gallina. I will discuss topics related to Gallina first, which is mostly relevant to the definition of theorems and then move on to Ltac which is what all my proofs are written in.
+
+\subsection{Why Coq}
+
+When I started this project, I chose Coq simply because it is very mature and I knew it to be powerful enough. I now know that type theory based proof assistants like Coq are especially suited to this kind of task because they are capable of \emph{reflection}.
+
+Reflection means that one is allowed to prove something by writing a program that checks it, proving that program correct and then using the program in a proof. The key thing that enables reflection in Coq is that its language Gallina is both a programming language and a logic at the same time.
+
+On the flip side, because of Coq's complexity, there are only relatively weak automatic theorem provers for it.
+
+Certified Programming with Dependent Types~\cite{CPDT} has a chapter that goes through progressively more complicated uses of reflection.
+
+To verify a program in a proof assistant that does not support programming, one has to generate lemmas from the source code that is being verified. The seL4 microkernel~\cite{sel4} has been developed in that fashion, for example. That makes sense because high performance and low level access to hardware is vital when implementing an operating system.
+
+Besides, round elimination is commonly used as a subroutine in proofs, while operating systems are not. Embedding round elimination in Coq makes it possible to prove whole reasoning chains, while a verified implementation of only round elimination could be given the wrong input.
+
+\subsection{How to read Coq}
+
+TODO
 
 \subsection{Notations}
 
