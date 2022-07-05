@@ -623,15 +623,30 @@ A trivial extension yields an algorithm for finding the maximal form: The input 
 
 \section{Type theory as mathematical foundation}\label{dependent}
 
-TODO Curry-Howard correspondence
+The Curry-Howard correspondence states that a program is a proof of a theorem corresponding to its type. Thanks to this idea, we can use a model of computation as the foundations of mathematics instead of the conventional Zermelo-Fraenkel set theory axioms.
 
-\subsection{Dependent types}
+\subsection{How to prove with code}
 
-A dependently typed programming language can express types that depend on values as opposed to simply typed languages, where types and values are entirely separate. Without dependent types, Coq would be useless. For instance, exists quantifiers in Coq create $\Sigma$-types, which do not exist in simply typed languages. Thus it is prudent to study dependent types if one wishes to understand the type theory flavour of proof assistants.
+The notation $e : T$ is read as expression $e$ has type $T$. This is analogous to set membership in set theory if $T$ is seen as the set of all values that $e$ could have. Types are not sets and don't always behave in the same way but some operations look very similar for both. Notably, types don't support union and intersection like sets do.
 
-Most programmers are familiar with the notation $e : T$ which is read as expression $e$ has type $T$. This is analogous to set membership in set theory if $T$ is seen as the set of all values that $e$ could have. Types are not sets and don't always behave in the same way but the algebraic operations presented next will look very similar for both. Notably, types don't support union and intersection like sets do.
+Types that are checked at runtime, found for example in Python are not the same thing. In Python, the same expression can have a different type on different runs. I am only talking about statically typed languages, so every expression has just one type, which can be computed without running the program.
 
-Types that are checked at runtime, found for example in Python are not the same thing. In Python, the same expression can have a different type on different runs; in statically typed languages every expression has just one type, which can be computed without running the program. In dependently typed languages the parts of the program that appear in types may have to be evaluated during type checking.
+Constructing a value of type $T$ proves that something of type $T$ exists. However, in most programming languages it is possible to write a function that does not construct a value of type $T$ even though that is its return type. Apart from broken type systems, this happens because the languages allow programs to crash or loop. Section~\ref{totality} explains how Coq prevents that.
+
+We can now prove that integers exist by writing $1: Integer$, which isn't very exciting. We can also encode propositional logic (see Listing~\ref{rustlog}) and integers. Some programming languages' type system is even Turing-complete but as far as I know, no type system is seriously used as a programming language. It would be much more useful to write theorems about the outputs of functions instead of some ugly type-level constructs. This is where dependent types come in.
+
+\begin{listing}[h]
+  \begin{minted}{Rust}
+  let a_or_b: Result<A, B>;
+  let a_and_b: (A, B);
+  let not_a: &dyn Fn(A) -> Void;
+  enum Void {}
+  \end{minted}
+  \caption{propositional logic in Rust types}
+  \label{rustlog}
+\end{listing}
+
+A dependently typed programming language can express types that depend on values as opposed to simply typed languages, where types and values are entirely separate. For example, with dependent types, one is able to write a type $1 + 1 = 2$ where $1$, $2$ and $+$ are the same constructs that one would use in a program that performs calculations. Even quantifiers are implemented with dependent types in Coq.
 
 \subsection{Type algebra}
 
@@ -726,7 +741,11 @@ Coq's \icoq{Inductive} definitions can be used to define many kinds of dependent
 
 \subsection{Universes}
 
-TODO
+A universe hierarchy is a feature of many dependently typed languages that the user mostly doesn't encounter but that is required for consistency as a proof system. It prevents making a paradoxical type $P$ such that $P: P$. In a language with polymorphism, such a type can be used to prove anything via Girard's paradox.
+
+In Coq, the type of a simple type is Set, the type of set is Type0, the type of Type0 is Type1 and the type of that is Type2 etc. Types have subtyping: anything of a lower type may be used as a higher type.~\cite{CPDT}
+
+The universe hierarchy also forces predicativity, meaning that a construct can't take itself as an argument. For example an identity function taking itself as an argument is perfectly benign but impredicativity tends to cause inconsistency in logical systems. Coquand~\cite{newParadox} reports on one such paradox he has discovered.
 
 \section{Mechanized proof}\label{mechproof}
 
@@ -841,7 +860,7 @@ Type constructors in general can be thought of as opaque functions that can be p
 
 TODO
 
-\subsection{Totality}
+\subsection{Totality}\label{totality}
 
 Every function in Gallina is \emph{total}, which means that all programs eventually complete without crashing if executed on correct hardware with a sufficient amount of memory.
 
