@@ -97,7 +97,7 @@ break characters as it is written into the metadata.
 \begin{tabular}{ll}
   $\Delta$ & graph maximum degree \\
   $\Pi$    & round elimination problem \\
-  $\Sigma$ & problem alphabet size
+  $\Sigma$ & round elimination problem alphabet
 \end{tabular}
 
 \subsection*{Abbreviations}
@@ -174,6 +174,8 @@ Canonical structures fullfill a similar purpose to type classes in Coq. A notabl
 
 I don't use this kind of automation in my code, as I only learned about it afterward, but it seems highly useful. Reordering things is easy but code that has to explicitly state the desired order of terms before applying a lemma is tedious and breaks when the reordered expression changes.
 
+\clearpage % otherwise the figures in the next section don't behave
+
 \section{Locally Checkable Labeling}
 
 Locally checkable labeling (LCL) is a family of graph problems in which one has to assign colors to edges or vertices, satisfying some locally checkable condition.~\cite{LCL}
@@ -223,7 +225,7 @@ When every vertex has at most $\Delta$ outgoing edges, an LCL-problem can be giv
 \caption{An exhaustive list of neighborhoods for checking sinkless orientation in a graph with maximum degree three.}
 \end{figure}
 
-I will use \emph{sinkless orientation} as running example in this paper. It is the problem of selecting a direction for each edge so that no vertex has only incoming edges. To check sinkless orientation, it is suffices to see the neighboring edges. There are other problems that require seeing a larger neighborhood, such as distance-2 coloring, the problem of choosing different colors for every pair of vertices the shortest distance of which is two.
+I will use \emph{sinkless orientation} as a running example. It is the problem of selecting a direction for each edge so that no vertex has only incoming edges. To check sinkless orientation, it is suffices to see the neighboring edges. There are other problems that require seeing a larger neighborhood, such as distance-2 coloring, the problem of choosing different colors for every pair of vertices the shortest distance of which is two.
 
 \newcommand\samplegraph
 {
@@ -251,19 +253,19 @@ I will use \emph{sinkless orientation} as running example in this paper. It is t
 
 \subsection{Round Elimination problems}
 
-\emph{Biregular graphs} are graphs that have properly two-colored vertices and where the degree of each class of vertices is constant. Round Elimination operates on edge coloring LCL-problems in biregular graphs that can be checked by only checking the nearest edges' colors. I call this kind of problem a \emph{Round elimination problem} or RE problem.
+\emph{Biregular trees} are trees that have properly two-colored vertices and where the degree of each class of vertices is constant. Round Elimination operates on edge coloring LCL-problems in biregular trees that can be checked by only checking the nearest edges' colors. I call this kind of problem a \emph{Round elimination problem} or RE problem.
 
-Sinkless orientation is not such a problem. To begin with, edge orientation is not a color. However, there is an isomorphism between the solutions our sinkless orientation problem and the solutions of an RE problem. But first, I will present a simple way of representing RE problems.
+Sinkless orientation is not such a problem. To begin with, edge orientation is not a color. However, there is an isomorphism between the solutions our sinkless orientation problem and the solutions of an RE problem, as we will see in a moment.
 
-In round elimination, one of the classes of the biregular graph is called the \emph{active side} and the other the \emph{passive side}. The active side nodes are active in the sense that they are the computers in a network that have to choose the colors of their neighboring edges.
+One of the classes of the biregular tree is called the \emph{active side} and the other the \emph{passive side}. The active side nodes are active in the sense that they are the computers in a network that have to choose the colors of their neighboring edges.
 
-Since each neighborhood can only see a vertex and a number of edges, we can simply list all multisets of edge colors allowed. They are called \emph{configurations} and are denoted with square brackets in this thesis. There are two sets of configurations, the configurations around active nodes, $A$, and the ones around passive nodes, $P$.
+Since each neighborhood consists of only a vertex and a number of edges, we can simply list all multisets of allowed edge colors. They are called \emph{configurations} and are denoted with square brackets in this thesis. There are two sets of configurations, the configurations around active nodes, $A$, and the ones around passive nodes, $P$.
 
 An RE problem can be represented as sets $A$ and $P$. The symbols in the configurations are from an alphabet $\Sigma$.
 
 \subsection{Conversion from LCL}
 
-I will now show how to represent sinkless orientation for RE.\@Each vertex in the original graph corresponds to an active vertex in the RE graph. Edges correspond to passive vertices. We can describe the directions of edges by coloring the RE graph's edges with I (for incoming) and O (for outgoing).
+I will now show how to convert sinkless orientation to an RE problem. The RE problem operates on a tree where the degree of active nodes corresponds to the original graph's degree and the degree of passive nodes is two. Each vertex in the original graph corresponds to an active vertex in the RE graph. Edges correspond to passive vertices. We can describe the directions of edges by coloring the RE graph's edges with I (for incoming) and O (for outgoing).
 
 \begin{figure}[h]
 \centering
@@ -297,17 +299,25 @@ I will now show how to represent sinkless orientation for RE.\@Each vertex in th
 \caption{Correspondence between solutions in round elimination graph and original graph}
 \end{figure}
 
-The active side's rule lists all the valid neighborhoods. The passive side's rule ensures that each edge is incoming on one end and outgoing on the other; otherwise there could be edges with an arrowhead on both sides.
-
+The active side's rule $A$ lists all the valid neighborhoods. The passive side's rule $P$ ensures that each edge is incoming on one end and outgoing on the other; otherwise there could be edges with an arrowhead on both sides.
 \begin{align*}
 \Sigma &= \{I, O\} \\
 A &= \{[I, I, O], [I, O, O], [O, O, O]\} \\
 P &= \{[I, O]\}
 \end{align*}
 
-The cases of sinkless orientation that deal with nodes of lower degree can be disregarded, since the active nodes in the biregular graph all have the same degree.
+The cases of sinkless orientation that deal with nodes of lower degree can be disregarded, since the active nodes in the biregular tree all have the same degree. The RE problem only models sinkless orientation on regular trees.
 
-TODO generalizing the conversion
+Real-world graphs are not regular trees, since graphs without any vertices of degree one are infinite. But proofs about regular trees are still useful: if something is impossible on a regular tree, it is impossible on graphs. Some interesting graphs are almost regular trees, one just has to handle the edge cases.
+
+The same kind of conversion as done here to sinkless orientation be applied to any locally checkable problem on regular trees. It isn't always as straightforward, especially if the LCL problem looks at a big neighborhood but it is possible.
+
+For example, distance-2 vertex coloring is quite verbose. In it, neighboring vertices have to have different colors and vertices at distance two have to have different colors. It can be encoded as follows for degree two graphs.
+\begin{align*}
+A &= \{[(c_0, c_1, c_2), (c_0, c_2, c_1)] \mid \text{for all distinct } c_0, c_1\text{ and }c_2 \} \\
+P &= \{[(c_1, c_2, c_3), (c_2, c_1, c_4)] \mid \text{for all distinct } c_1, c_2, c_3\text{ and }c_4 \}
+\end{align*}
+Just like in sinkless orientation, the edges become passive nodes. The first value of each triplet is the color of the nearest node, the second one is the color of the neighbor the edge is going towards and the third node is the color of the other neighbor.
 
 \section{Round Elimination}
 
@@ -335,14 +345,19 @@ For example, the line \reline{IO IO O} generates the configurations $[I, O, O]$,
 \end{figure}
 
 \subsection{Formal definition}
-The configurations of $\Pi_1$ have the exact same shape as lines of $\Pi_0$: multisets of nonempty sets of symbols from $\Pi_0$'s alphabet, so it is convenient to talk about them as lines. I will call $\Pi_0$'s alphabet, active side and passive side $\Sigma_0$, $A_0$ and $P_{0}$ respectively and use the same notation to refer to $\Pi_{1}$'s components
+
+Let $\Pi_n$'s alphabet, active side and passive side be $\Sigma_n$, $A_n$ and $P_{n}$ respectively. Let $\text{cfgs}$ be a function from a line to all the configurations it generates.
+
+Note that the configurations of $\Pi_1$ have the exact same shape as lines of $\Pi_0$: multisets of nonempty subsets of $\Sigma_0$. This is why configurations of $\Pi_1$ generate configurations in the below definitition.
 
 The definition of RE from Distributed Algorithms 2020~\cite{DA2020} rephrased in terms of lines:
 \begin{itemize}
   \item $\Sigma_1$ is the powerset of $\Sigma_0$ minus the empty set.
-  \item $A_{1}$ consists of all configurations that only generate configurations present in $P_{0}$.
-  \item $P_1$ consists of all configurations that generate at least one configuration from $A_0$.
+  \item $A_{1} = \{x \mid \forall c : \text{cfgs}(x),\ c \in P_0 \}$
+  \item $P_1 = \{x \mid \exists c : \text{cfgs}(x),\ c \in A_0 \}$
 \end{itemize}
+
+In words: $A_{1}$ consists of all lines that only generate configurations present in $P_{0}$. $P_1$ consists of all lines that generate at least one configuration from $A_0$.
 
 \subsection{Interpretation in the port numbering model}
 
@@ -427,9 +442,13 @@ Round Elimination produces a gigantic number of configurations. Especially the n
 
 One simple optimization is to discard all active configurations containing symbols that don't appear in any passive configurations and vice versa, as using them is impossible. But even more can be discarded.
 
-\subsubsection{Maximal form}
+As mentioned earlier, the lines of $\Pi_0$ are just like the configurations of $\Pi_1$. (Which is why I'm using line notation to write the latter as well.) In terms of lines, $A_1$ is the set of all \emph{valid} lines wrt. $P_0$, where valid lines are lines that only generate configurations that are in $P_0$.
 
-Suppose the picture below is part of a solution to $\Pi_{1}$. One can see that \reline{x~a} and \reline{af~y} are in $A_{1}$ and \reline{a~af} is in $P_{1}$. If \reline{x~ac} is in $A_{1}$, there is also a solution where node $n$ uses it instead of \reline{x~a}.
+I will now show that using only some valid lines as $A_1$ instead of \emph{all} valid lines creates a problem has strictly less solutions than $\Pi_1$ but is exactly as hard.
+
+\subsubsection{Domination}
+
+Suppose the picture below is part of a solution to $\Pi_{1}$. One can see that \reline{x~a} and \reline{af~y} are in $A_{1}$ and \reline{a~af} is in $P_{1}$.
 
 \begin{tikzpicture}[scale=2]
   \draw [thick, dashed] (0.3,0) -- (1,0) node[midway, above]{\{x\}};
@@ -438,9 +457,18 @@ Suppose the picture below is part of a solution to $\Pi_{1}$. One can see that \
   \draw [thick] (2,0) node[passive]{} -- (3, 0) node[active]{} node[midway, above]{\{a, f\}};
 \end{tikzpicture}
 
-In that alternative solution \reline{ac~af} has to be in $P_{1}$. \reline{a~af} is in $P_{1}$, so it generates some configuration from $A_{0}$. \reline{ac~af} generates strictly more configurations, so it is in $P_{1}$, too.
+If \reline{x~ac} is in $A_{1}$, there is also a solution where node $n$ chooses it instead of \reline{x~a}, provided that \reline{ac~af} is in $P_{1}$. \reline{a~af} is in $P_{1}$, so it generates some configuration from $A_{0}$. \reline{ac~af} generates strictly more configurations, so it is in $P_{1}$, too.
 
-As every solution using \reline{x~a} can use \reline{x~ac} instead, \reline{x~a} can be omitted. In general, A can be omitted if A and B can be paired up so that for each pair $(a, b)$ where $a \in A$ and $b \in B$ it holds that $a \subseteq b$.~\cite{DA2020} (TODO write it so that it is clear that this only applies to the active side) For any A and B satisfying that criterion I say that B \emph{dominates} A and A is dominated by B.
+\begin{tikzpicture}[scale=2]
+  \draw [thick, dashed] (0.3,0) -- (1,0) node[midway, above]{\{x\}};
+  \draw [thick] (1,0) node[active]{n} -- (2, 0) node[midway, above]{\{a, \textbf{\underline{c}}\}};
+  \draw [thick, dashed] (3,0) -- (3.7,0) node[midway, above]{\{y\}};
+  \draw [thick] (2,0) node[passive]{} -- (3, 0) node[active]{} node[midway, above]{\{a, f\}};
+\end{tikzpicture}
+
+As every solution using \reline{x~a} can use \reline{x~ac} instead, \reline{x~a} can be omitted.
+
+Any configuration $C$ in $A_1$ can be omitted if there is a $B$ in $A_1$ that can be paired up with $C$ so that for each pair $(c, b)$ where $c \in C$ and $b \in B$ it holds that $c \subseteq b$.~\cite{DA2020} For any $C$ and $B$ satisfying that criterion I say that $B$ \emph{dominates} $C$ and $C$ \emph{is dominated by} $B$.
 
 \tikzset{
   EdgeStyle/.append style = {->}
@@ -466,26 +494,34 @@ As every solution using \reline{x~a} can use \reline{x~ac} instead, \reline{x~a}
     \Edge(a ab)(a a)
     \Edge(a ab)(a b)
   \end{tikzpicture}
-  \caption{Graph of lines dominated by \reline{a~abc}.}
+  \caption{Graph of lines strictly dominated by \reline{a~abc}.}
 \end{figure}
 
 Note that domination is not the same relation as the subset relation of generated configurations. \reline{a abc ade} generates $[a, b, e]$, while \reline{a a bcde} only generates configurations that are in the former. Yet they are incomparable in terms of domination.
 
-The subset of $A_{1}$ dominated by none is called the \emph{maximal form} of $P_{0}$. Or one could say that the maximal form of $S$ is the Pareto front of \emph{valid} lines with respect to domination, where valid means that a line only generates configurations that $S$ generates.
+\subsubsection{Maximal form}
 
-It seems unlikely that some approximation of the maximal form would be cheaper to compute, as any result of round elimination must include the maximal lines. An approximation would just include some extra lines along with them.
+We don't need to include dominated lines in $A_1$, as a good algorithm solving $\Pi_1$ would never choose them, as the more dominant lines are always a better choice.
 
-This work's main contribution is a new algorithm for finding the maximal form of $P_{0}$ by combining lines and its proof.
+Thus the only lines needed in $A_1$ (the \emph{maximal form} of $P_0$) are the valid lines that no valid line strictly dominates. In other words, the \emph{maximal form} of $S$ is the Pareto front of \emph{valid} lines with respect to domination.
 
-TODO explain proof that sets of configurations and lines are isomorphic
+This work's main contribution is a new algorithm for finding the maximal form of $P_{0}$ by combining lines and a proof of its correctness.
+
+\subsection{Line uniqueness}
+
+Most sets of configurations can be represented by many different sets of lines but every line uniquely identifies a set of configurations. That is, there are no two lines that generate the same set of configurations.
+
+TODO proof
 
 \subsection{Putting it all together}
 
-To perform round elimination, one first finds the maximal form of $P_0$. The new active side, $A_1$, is a version of the maximal form where every set contains a single element, the corresponding set from the maximal form.
+To perform round elimination, one first finds the maximal form of $P_0$. The configurations of the new active side, $A_1$, are exactly that maximal form.
+
+However, we want lines, not configurations, so the symbols in each configuration get wrapped into a singleton set. For example, the $\Pi_1$-configuration $[\{a, b\}, \{c\}, \{a, c\}]$ turns into the $\Pi_1$-line $[\{\{a, b\}\}, \{\{c\}\}, \{\{a, c\}\}]$. Written using the notation for lines I use elsewhere it is \reline{\{a, b\} \{c\} \{a, c\}}.
 
 The new alphabet, $\Sigma_1$ consists of all symbols found in $A_1$.
 
-The new passive side is built by replacing every set in $A_0$ with the set of all symbols from $\Sigma_1$ that it intersects.
+The new passive side is built by replacing every set in the lines representing $A_0$ with all symbols from $\Sigma_1$ that it intersects. For instance if $\Sigma_1 = \{\{b\}, \{c\}, \{a, b\}, \{a, b, c\}\}$, $\{a, b\}$ would be replaced with $\{\{b\}, \{a, b\}, \{a, b, c\}\}$.
 
 Finally, to make the representation more compact, $\Sigma_1$ is converted from subsets of $\Sigma_0$ to ordinals simply by enumerating the symbols.
 
