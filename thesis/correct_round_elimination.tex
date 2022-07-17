@@ -152,7 +152,7 @@ The other tools prefer human-readable proofs because they are maintainable. You 
 
 As an example, it may turn out that there is a data structure that is easier to work with than the one initially used. \emph{Transporting} the old proofs to the new data structure takes great effort. On the other hand, automated proofs will often work with a different data structure with little to no editing. Besides, if the initial formalization of the mathematical object in question was inaccurate, there is no other option.
 
-\subsubsection{Aside: transporting proofs}
+\subsubsection{Aside: transporting proofs}\label{transport}
 
 It is very common in mathematics to prove something for one representation of a mathematical object and assume that it is true for all isomorphic representations. This notion, while intuitive is not trivial to formalize and current proof assistants do not support it by default.
 
@@ -648,6 +648,8 @@ We can now prove that integers exist by writing $1: Integer$, which isn't very e
 
 A dependently typed programming language can express types that depend on values as opposed to simply typed languages, where types and values are entirely separate. For example, with dependent types, one is able to write a type $1 + 1 = 2$ where $1$, $2$ and $+$ are the same constructs that one would use in a program that performs calculations. Even quantifiers are implemented with dependent types in Coq.
 
+Before going into dependent types it more detail, I'll briefly discuss the algebraic notation that is often used when discussing types.
+
 \subsection{Type algebra}
 
 The unit type $1$ is a type with only one inhabitant, commonly denoted as the empty tuple $()$. The type $0$ is a type that no value has. It should not be confused with \textbf{void} in C, which is actually $1$. If a function's return type is $0$, the function must never return, as it is impossible to construct a value of type $0$.
@@ -1053,9 +1055,15 @@ The line combination algorithm for maximization delivers on the performance goal
 
 The formalization of round elimination uses many data structures and proofs provided by the Mathematical Components library. However, that library is made with pure mathematics in mind; functions using the data structures aren't meant to be executed.
 
-Let's take the definition of \icoq{n.-tuple}, a fixed size list, as an example. It is simply a wrapper around a list and a proof that the list's length is \icoq{n}.
+One example is the definition of \icoq{n.-tuple}, a fixed size list. It is simply a wrapper around a list and a proof that the list's length is \icoq{n}. As the tuple goes through various transformations, the proof grows longer, as it is always replaced with a new proof that references the old one.
 
-TODO
+I have observed that the proof's memory use grows much faster than linearly with the length of the tuple. I suspect that this is due to some proof that iterates through all permutations of the tuple. In any case, it is clear that actually executing the proof code is not viable.
+
+The most common solution to this kind of problem is proof irrelevance. The idea is that theorems can be types that never have more than one inhabitant. That forces proofs be compile-time only: since the proofs have only one possible value, runtime behaviour cannot change based on that value. Coq has the type Prop, which can be used to mark proofs as irrelevant at runtime.
+
+But Mathematical Components does not use Prop. It is not clear to me why that is hard.
+
+It is possible to simply replace the data structures with efficient ones, which, given the size of the proof, could be done in reasonable time. Or one could refine (see Section \ref{transport}) the functions using CoqEAL to operate on more efficient data structures without changing the proof.
 
 \subsection{A verified Round Eliminator}
 
