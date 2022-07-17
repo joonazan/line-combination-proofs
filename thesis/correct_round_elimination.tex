@@ -305,7 +305,7 @@ A &= \{[I, I, O], [I, O, O], [O, O, O]\} \\
 P &= \{[I, O]\}
 \end{align*}
 
-The cases of sinkless orientation that deal with nodes of lower degree can be disregarded, since the active nodes in the biregular graph all have the same degree. (TODO but didn't we discover that we can do RE in non-regular graphs?)
+The cases of sinkless orientation that deal with nodes of lower degree can be disregarded, since the active nodes in the biregular graph all have the same degree.
 
 TODO generalizing the conversion
 
@@ -346,7 +346,7 @@ The definition of RE from Distributed Algorithms 2020~\cite{DA2020} rephrased in
 
 \subsection{Interpretation in the port numbering model}
 
-In this section I'll show that the round elimination produces a problem that can be solved exactly one round faster than its predecessor in the port numbering model. The port numbering model is the weakest of a number of of models of distributed computing. The proof in the port numbering model has been used to show that the same property holds in stronger models. (TODO cite an example)
+In this section I'll show that round elimination produces a problem that can be solved exactly one round faster than its predecessor in the port numbering model. The port numbering model is the weakest of a number of of models of distributed computing. But round elimination has been shown to work in stronger models, like the LOCAL model as well.~\cite{tc3}
 
 \subsubsection{The port numbering model}
 
@@ -1036,7 +1036,7 @@ In practical implementations there are tricks for quickly discarding most result
 
 \subsection{In practice}
 
-I and Dennis Olivetti both implemented the new algorithm in the Rust programming language. TODO link to them.
+I and Dennis Olivetti both implemented the new algorithm in the Rust programming language. Both are publicly available at https://github.com/joonazan/maximizer and https://github.com/olidennis/round-eliminator respectively.
 
 Both implementations compare new lines against other lines originating from the same pair of lines before comparing against the rest. This is worthwhile based on the assumption that many of the new lines are just inferior versions of the best lines of that batch.
 
@@ -1067,7 +1067,7 @@ It is possible to simply replace the data structures with efficient ones, which,
 
 \subsection{A verified Round Eliminator}
 
-Distributed algorithms researchers have found lower bounds for the time complexity of problems by making the problem easier by allowing strictly more configurations, performing round elimination on the result, then making it easier again, etc.\ until they arrive at some well-known problem. It can then be argued that the first problem must be at least as hard as the known problem. (TODO cite a nice example. Maybe the case where they managed to synthesize an algorithm while doing this.) Similarly, upper bounds can be proved by making problems harder.
+Distributed algorithms researchers can find lower bounds for the time complexity of problems by making the problem easier by allowing strictly more configurations, performing round elimination on the result, then making it easier again, etc.\ until they arrive at some well-known problem. It can then be argued that the first problem must be at least as hard as the known problem. Similarly, upper bounds can be proved by making problems harder.
 
 The Round Eliminator software has tools that can be used to quickly perform a series of simplification and round elimination steps. Each one of the tools produces some new problem that has some relationship to the current problem: easier, harder, exactly as hard or exactly one round easier.
 
