@@ -743,9 +743,30 @@ Coq's \icoq{Inductive} definitions can be used to define many kinds of dependent
 
 A universe hierarchy is a feature of many dependently typed languages that the user mostly doesn't encounter but that is required for consistency as a proof system. It prevents making a paradoxical type $P$ such that $P: P$. In a language with polymorphism, such a type can be used to prove anything via Girard's paradox.
 
-In Coq, the type of a simple type is Set, the type of set is Type0, the type of Type0 is Type1 and the type of that is Type2 etc. Types have subtyping: anything of a lower type may be used as a higher type.~\cite{CPDT}
+In Coq, the type of a simple type is Set, the type of set is Type0, the type of Type0 is Type1 and the type of that is Type2 etc. Types have subtyping: any type may be used as if its universe index was greater.~\cite{CPDT}
 
-The universe hierarchy also forces predicativity, meaning that a construct can't take itself as an argument. For example an identity function taking itself as an argument is perfectly benign but impredicativity tends to cause inconsistency in logical systems. Coquand~\cite{newParadox} reports on one such paradox he has discovered.
+Impredicativity tends to cause inconsistency in logical systems. Coquand~\cite{newParadox} reports on one such paradox he has discovered. The universe hierarchy forces predicativity, meaning that an object can't take itself as an argument. Such an object would have to have to live in a universe $U$ such that $U < U$.
+
+Certified Programming with Dependent Types~\cite{CPDT} gives an example of a universe error (shown below) but it has to be slightly modified, as it compiles and runs without errors on Coq 8.15.
+\begin{minted}{Coq}
+Definition id {T: Type} (x: T) := x.
+Check id id.
+\end{minted}
+The code typechecks because Coq's type inference has become good enough to figure out that it can choose \icoq{T := U -> U} in the first \icoq{id} and \icoq{T := U} in the second.
+
+To get the error that the example tries to produce, we need to disallow inferring the implicit argument.
+\begin{minted}{Coq}
+Check id (@id).
+\end{minted}
+produces the expected error.
+\begin{verbatim}
+The term "@id" has type "forall T : Type, T -> T"
+while it is expected to have type "?T"
+(unable to find a well-typed instantiation for "?T":
+cannot ensure that "Type@{id.u0+1}" is a subtype of "Type@{id.u0}").
+\end{verbatim}
+
+Especially with the improvements in inference, typical users rarely encounter universes. There is already experimental support for universe polymorphism~\cite{coqRefman} which completely eliminates the problem in the above example by allowing use of the same definition with different universe levels.
 
 \section{Mechanized proof}\label{mechproof}
 
