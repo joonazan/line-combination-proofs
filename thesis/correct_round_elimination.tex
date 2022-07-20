@@ -317,7 +317,7 @@ For example, distance-2 vertex coloring is quite verbose. In it, neighboring ver
 A &= \{[(c_0, c_1, c_2), (c_0, c_2, c_1)] \mid \text{for all distinct } c_0, c_1\text{ and }c_2 \} \\
 P &= \{[(c_1, c_2, c_3), (c_2, c_1, c_4)] \mid \text{for all distinct } c_1, c_2, c_3\text{ and }c_4 \}
 \end{align*}
-Just like in sinkless orientation, the edges become passive nodes. The first value of each triplet is the color of the nearest node, the second one is the color of the neighbor the edge is going towards and the third node is the color of the other neighbor.
+Just like in sinkless orientation, the edges become passive nodes. The first value of each triplet is the color of the nearest node, the second one is the color of the neighbor the edge is going towards and the third value is the color of the other neighbor.
 
 \section{Round Elimination}
 
@@ -369,11 +369,13 @@ In the port numbering model, each vertex runs the same program and must produce 
 
 Computation proceeds in a series of rounds. In each round, vertices send a message to each of their neighbors. Then all vertices receive the messages simultaneously. Finally, each vertex can either output its part of the solution and stop, or continue to the next round. Before, after and between these steps, the nodes get to compute as much as they want. This process repeats until all vertices have chosen their output.
 
+Depending on the problem, each node may also get some information when the execution starts. For instance the total number of nodes is often provided so each node can compute how long the algoritm is going to run in advance.
+
 However, everything stated in the previous paragraphs applies equally well to the LOCAL model for example. The defining characteristic of the port numbering model is that the only thing each vertex knows is that it is connected to its $n$ neighbors via ports numbered $1$ to $n$.
 
 Formally, we can define a graph in the port numbering model as a set of connections between ports.
 \begin{align*}
-  \text{Port} = \text{Vertex} \times \mathbb{N} \\
+  \text{Port} = \text{Vertex} \times \mathbb{Z^+} \\
   \text{Connection} = \{Port, Port\}
 \end{align*}
 Every port must be connected to only one other port. If a node's port $n$ is connected, ports $1$ to $n-1$ must be connected as well.
@@ -386,37 +388,45 @@ An algorithm in the port numbering model can be expressed as three functions.
 \end{align*}
 The first one computes what messages to send based on the state the node is in; the second how a node's state changes when it receives its neighbors' messages. The first message in the tuple produced by $\text{send}$ is sent to port 1, the second to port 2 etc. Likewise, the first message in the tuple passed into $\text{recv}$ is the one received from port 1. Finally, the function called $\text{result}$ computes a node's output if it has stopped and returns unit otherwise. (The notation $\text{Output} + 1$ means $\text{Output}$ or unit. The one stands for a type that is inhabited by only one value.)
 
-None that $\text{send}$ and $\text{recv}$ may behave differently based on the number of ports. In fact, they have to because $\text{send}$ must produce a tuple of messages of the correct length. The number of ports, $n$ cannot be a normal parameter, as the type of the function depends on its value. For an in-depth discussion of the $\Pi$ notation see Section~\ref{dependent} (Dependent types).
+Note that $\text{send}$ and $\text{recv}$ may behave differently based on the number of ports. In fact, they have to because $\text{send}$ must produce a tuple of messages of the correct length. The number of ports, $n$ cannot be a normal parameter, as the type of the function depends on its value. For an in-depth discussion of the $\Pi$ notation see Section~\ref{pitypes}.
 
 An $r$-round solvable problem is a problem for which there exists an algorithm that gives the correct output after $r$ rounds. It is easier to prove that round elimination works in the port numbering model by adopting a different perspective.
 
 \begin{lemma}
-  A problem is $r$-round solvable in the port numbering model if and only if each vertex can produce a correct output by looking at its $r$-neighborhood.
+  A problem on trees is $r$-round solvable in the port numbering model if and only if each vertex can produce a correct output by looking at its $r$-neighborhood.
 \end{lemma}
 Here $r$-neighborhood refers to the subgraph containing vertices and edges at most $r$ edges away.
 
-The $r$-neighborhood is sufficiently large, as information from further away cannot be seen in $r$ rounds. Every vertex can gather its $r$-neighborhood can be constructed in $r$ rounds, so it isn't too much information either.
+\begin{proof}
+  The $r$-neighborhood is sufficiently large, as information from further away cannot be seen in $r$ rounds.
 
-The gathering process works as follows: In every round, every vertex sends everything it knows to its neighbors. TODO
+  Every vertex can gather its $r$-neighborhood in $r$ rounds, so it isn't too much information either. The gathering process works as follows: Every round, every node sends through each of its ports the number of the port, its number of neighbors and the messages it received in the previous round along with any data it was initialized with.
+
+  After round $r$, all vertices can reconstruct their $r$-neighborhood. The structure of nested messages exactly mirrors the structure of the graph.
+
+  In general graphs, the neighborhood cannot be reconstructed because if two distinct paths lead to a node that looks the same, there is no way to tell if the paths go to the same node or not. But in trees there is only one path between any two vertices.
+\end{proof}
+
+In the LOCAL model this lemma holds for general graphs because the LOCAL model assigns a unique identifier to every node.
 
 \subsubsection{Round elimination in the port numbering model}
 
-Suppose there is an algorithm $G_0$ that looks at an $r$-neighborhood and solves the round elimination problem $\Pi_0$. Let us construct an algorithm $G_1$ that looks at an $(r-1)$-neighborhood in a graph that is the same as the graph $G_0$ operates on but the active nodes are passive and vice versa.
+Suppose there is an algorithm $G_0$ that solves the round elimination problem $\Pi_0$ in $r$ rounds, where $r > 0$. Let us construct an algorithm $G_1$ that operates on the same graph but the active nodes are passive and vice versa. Also suppose that $G_1$ finishes in $r-1$ rounds, so it makes a decision based on an $r-1$ neighborhood.
 
 Suppose that $G_1$ is run on some vertex $v$. For each neighboring vertex $n$, $G_1$ computes all possible $r$-neighborhoods centered around $n$. $G_1$ then runs $G_0$ on each of the neighborhoods, noting the color $G_0$ assigns to the edge $\{v, n\}$. $G_1$ assigns the union of all those colors to $\{v, n\}$.
 
-TODO $r > 0$ and $r$ must be small enough that blind spots could all be full size.
-
 \begin{lemma}
-  $G_1$ solves $\Pi_1$, the result of running round elimination on $\Pi_0$.
+  $G_1$ solves $\Pi_1$, the result of running round elimination on $\Pi_0$, provided that disjoint parts of the graph are independent.
 \end{lemma}
 \begin{proof}
-  It suffices to show that $G_1$'s solutions satisfy $\Pi_1$'s active and passive side rule.
+  It suffices to show that $G_1$'s outputs satisfy $\Pi_1$'s active and passive side rule.
 
   All the edge colors surrounding a passive node are computed from the same part of the graph but with different blind spots. Since $G_0$ is run  with all possible values in the blind spots, there is a run where the blind spot has the same values as it does in reality. Thus each edge's set contains the color that $G_0$ would assign to that edge. Because $G_0$ solves $\Pi_0$, $A_0$ must contain a configuration with those colors. Therefore $P_1$ is satisfied, as all the passive nodes' surrounding edges generate a configuration from $A_0$.
 
-  The edges $e_1, e_2, \ldots$ surrounding an active node are computed from neighborhoods whose blind spots are completely disjoint since the graph is a tree. Suppose the edges's colors generate some configuration $[a_1, a_2, \ldots]$ that is not in $P_0$. Then w.l.o.g.\ there exist some values for the blind spots such that $G_0$ colors $e_1$ with $a_1$, $e_2$ with $a_2$, etc. Because the blind spots are disjoint, it is possible to set them all to those specific values at the same time, which results in a graph where $G_0$ colors the edges around a passive node with a set of colors that isn't found in $P_0$ which is a contradiction, as we assumed that $G_0$ solves $\Pi_0$. Thus we know that the colorings of active nodes only generate configurations that are in $P_0$.
+  The edges $e_1, e_2, \ldots$ surrounding an active node are computed from neighborhoods whose blind spots are completely disjoint since the graph is a tree. Suppose the edges's colors generate some configuration $[a_1, a_2, \ldots]$ that is not in $P_0$. Then w.l.o.g.\ there exist some values for the blind spots such that $G_0$ colors $e_1$ with $a_1$, $e_2$ with $a_2$, etc. As the blind spots are completely independent, it is possible to set them all to those specific values at the same time, which results in a graph where $G_0$ colors the edges around a passive node with a set of colors that isn't found in $P_0$ which is a contradiction, as we assumed that $G_0$ solves $\Pi_0$. Thus we know that the colorings of active nodes only generate configurations that are in $P_0$.
 \end{proof}
+
+Moving to the LOCAL model violates the independency requirement, as two blind spots cannot have the same unique identifiers. Another way to break independency is to choose a very large $r$. If $r$ is so large that it could contain the whole network, the size of the network could prevent the largest options for the blind spots from existing at the same time.
 
 \begin{lemma}
   $\Pi_1$ can be solved at least one round faster than $\Pi_0$.
@@ -434,7 +444,7 @@ TODO $r > 0$ and $r$ must be small enough that blind spots could all be full siz
   But we assumed that the fastest algorithm solves $\Pi_0$ in $r$ rounds, so the assumption that $\Pi_1$ can be solved in less than $r-1$ rounds must be false.
 \end{proof}
 
-I have shown that $\Pi_1$ can be solved at least one round faster and at most one round faster than $\Pi_0$, so clearly it can be solved exactly one round faster than $\Pi_0$.
+I have shown that $\Pi_1$ can be solved at least one round faster and at most one round faster than $\Pi_0$. It follows that it can be solved exactly one round faster than $\Pi_0$.
 
 \subsection{Optimizing output size}
 
@@ -507,23 +517,39 @@ Thus the only lines needed in $A_1$ (the \emph{maximal form} of $P_0$) are the v
 
 This work's main contribution is a new algorithm for finding the maximal form of $P_{0}$ by combining lines and a proof of its correctness.
 
-\subsection{Line uniqueness}
+\subsection{Aside: Line uniqueness}
 
 Most sets of configurations can be represented by many different sets of lines but every line uniquely identifies a set of configurations. That is, there are no two lines that generate the same set of configurations.
 
-TODO proof
+I will show that there is only one way to turn configurations generated by a line back into a line.
+
+Every color must be present in the line as many times as in the configuration that contains the highest number of it. Less obviously wouldn't work and if it was present more times, there would be a configuration containing it that many times.
+
+Using the information from the previous paragraph, it is possible to figure out the overlap between any two colors $a$ and $b$. If there is no configuration with all $a$s and all $b$s, one set in the line must have both. The magnitude of the overlap is the difference of how many $a$s and $b$s there are and the highest number of $a$ and $b$ seen at the same time.
+
+The amount of overlap tells us how many sets there are which contain both $a$ and $b$. But some of those sets could also contain $c$. To figure out how many sets contain $a$, $b$ and $c$, we first figure out how many contains $a$ and $c$ and how many contain $b$ and $c$. That way we get a prediction for how many of all three are seen at the same time. The difference between the prediction and the observed value is how many sets contain all three.
+
+Let $o$ be a function from sets of colors to the maximum number of them that is observed at once in a configuration and let $s$ be a function from sets of colors to the number of them or a superset present in the line.
+\begin{align*}
+  o(\{a\}) &= s(\{a\}) \\
+  s(\{a, b\}) &= s(\{a\}) + s(\{b\}) - o(\{a, b\}) \\
+  s(\{a, b, c\}) &= s(\{a, b\}) + s(\{a, c\}) + s(\{b, c\}) - o(\{a, b, c\}) \\
+  ...
+\end{align*}
+
+Now the line can be reconstructed by repeatedly adding the largest set for which $s$ is nonzero and subtracting one from all values of $s$ associated with a subset of it. Any deviation from the process would yield a line which doesn't produce the same configurations, so the line is unique.
 
 \subsection{Putting it all together}
 
 To perform round elimination, one first finds the maximal form of $P_0$. The configurations of the new active side, $A_1$, are exactly that maximal form.
 
-However, we want lines, not configurations, so the symbols in each configuration get wrapped into a singleton set. For example, the $\Pi_1$-configuration $[\{a, b\}, \{c\}, \{a, c\}]$ turns into the $\Pi_1$-line $[\{\{a, b\}\}, \{\{c\}\}, \{\{a, c\}\}]$. Written using the notation for lines I use elsewhere it is \reline{\{a, b\} \{c\} \{a, c\}}.
+However, we want lines, not configurations, so the colors in each configuration get wrapped into a singleton set. For example, the $\Pi_1$-configuration $[\{a, b\}, \{c\}, \{a, c\}]$ turns into the $\Pi_1$-line $[\{\{a, b\}\}, \{\{c\}\}, \{\{a, c\}\}]$. Written using the notation for lines I use elsewhere it is \reline{\{a, b\} \{c\} \{a, c\}}.
 
-The new alphabet, $\Sigma_1$ consists of all symbols found in $A_1$.
+The new alphabet, $\Sigma_1$ consists of all colors found in $A_1$.
 
-The new passive side is built by replacing every set in the lines representing $A_0$ with all symbols from $\Sigma_1$ that it intersects. For instance if $\Sigma_1 = \{\{b\}, \{c\}, \{a, b\}, \{a, b, c\}\}$, $\{a, b\}$ would be replaced with $\{\{b\}, \{a, b\}, \{a, b, c\}\}$.
+The new passive side is built by replacing every set in the lines representing $A_0$ with all colors from $\Sigma_1$ that it intersects. For instance if $\Sigma_1 = \{\{b\}, \{c\}, \{a, b\}, \{a, b, c\}\}$, $\{a, b\}$ would be replaced with $\{\{b\}, \{a, b\}, \{a, b, c\}\}$.
 
-Finally, to make the representation more compact, $\Sigma_1$ is converted from subsets of $\Sigma_0$ to ordinals simply by enumerating the symbols.
+Finally, to make the representation more compact, $\Sigma_1$ is converted from subsets of $\Sigma_0$ to ordinals simply by enumerating the colors.
 
 
 \section{Maximization via line combination}\label{nlproof}
@@ -696,7 +722,7 @@ Values of a sum type $A + B$ are either of type $A$ or of type $B$. The correspo
 
 Knowing this much type algebra is sufficient to understand why the dependent types presented next are called $\Pi$ and $\Sigma$-types but I'll go on to show that types equipped with the previously defined sum and product form a semiring just to highlight that there truly is an algebra of types.
 
-\subsubsection{More type algebra}
+\subsubsection{Aside: More type algebra}
 
 I have many times found myself wondering if I should write a data structure $A \times (B + C)$ or $(A \times B) + (A \times C)$ when it isn't entirely clear if $A$ really represents the same thing in both cases. I am not aware of any programming language where such \emph{isomorphic types} can be used interchangeably. Incidentally, in Coq $((1, 2), 3)$ is equal to $(1, 2, 3)$ but $(1, (2, 3))$ has a different type.
 
@@ -731,7 +757,7 @@ is a solution to
 which is the typical definition of a list in functional programming languages. Conor McBride~\cite{typeDerivative} has even shown that the partial derivative of a type is a data structure representing an in-progress traversal of it.
 
 \subsection{Examples of dependent types}
-\subsubsection{Dependent functions}
+\subsubsection{Dependent functions}\label{pitypes}
 
 A $\Pi$-type is a type that depends on the value passed in. For example, ordinarily it would be impossible to write a function that sums all entries in a tuple because tuples of different lengths have different types. Using a $\Pi$-type, the function could have the type $\Pi_{n : \mathbb N}~\mathbb N^n \to \mathbb N$.
 
