@@ -323,7 +323,7 @@ Just like in sinkless orientation, the edges become passive nodes. The first val
 
 Brandt et al.~\cite{speedup} introduced round elimination in 2019. It is a procedure that takes a round elimination problem $\Pi_0$ and outputs a new problem $\Pi_1$. It has interpretations in various models of distributed computing. As the name suggests, $\Pi_1$ can generally be solved one round faster than $\Pi_0$.
 
-While $\Pi_0$ assigns a color to each edge, $\Pi_1$ assigns a set of colors each edge. That set contains the colors that the edge could have in a solution to $\Pi_0$. There is uncertainty because in one round less some information that affects the solution of $\Pi_0$ is out of reach.
+While $\Pi_0$ assigns a color to each edge, $\Pi_1$ assigns a set of colors to each edge. That set contains the colors that the edge could have in a solution to $\Pi_0$. There is uncertainty because in one round less some information that affects the solution of $\Pi_0$ is out of reach.
 
 \subsection{Lines}
 
@@ -423,7 +423,7 @@ Suppose that $G_1$ is run on some vertex $v$. For each neighboring vertex $n$, $
 
   All the edge colors surrounding a passive node are computed from the same part of the graph but with different blind spots. Since $G_0$ is run  with all possible values in the blind spots, there is a run where the blind spot has the same values as it does in reality. Thus each edge's set contains the color that $G_0$ would assign to that edge. Because $G_0$ solves $\Pi_0$, $A_0$ must contain a configuration with those colors. Therefore $P_1$ is satisfied, as all the passive nodes' surrounding edges generate a configuration from $A_0$.
 
-  The edges $e_1, e_2, \ldots$ surrounding an active node are computed from neighborhoods whose blind spots are completely disjoint since the graph is a tree. Suppose the edges's colors generate some configuration $[a_1, a_2, \ldots]$ that is not in $P_0$. Then w.l.o.g.\ there exist some values for the blind spots such that $G_0$ colors $e_1$ with $a_1$, $e_2$ with $a_2$, etc. As the blind spots are completely independent, it is possible to set them all to those specific values at the same time, which results in a graph where $G_0$ colors the edges around a passive node with a set of colors that isn't found in $P_0$ which is a contradiction, as we assumed that $G_0$ solves $\Pi_0$. Thus we know that the colorings of active nodes only generate configurations that are in $P_0$.
+  The edges $e_1, e_2, \ldots$ surrounding an active node are computed from neighborhoods whose blind spots are completely disjoint since the graph is a tree. Suppose the edges's colors generate some configuration $[a_1, a_2, \ldots]$ that is not in $P_0$. Then w.l.o.g.\ there exist some values for the blind spots such that $G_0$ colors $e_1$ with $a_1$, $e_2$ with $a_2$, etc. As the blind spots are completely independent, it is possible to set them all to those specific values at the same time, which results in a graph where $G_0$ colors the edges around a passive node with a set of colors that is not found in $P_0$ which is a contradiction, as we assumed that $G_0$ solves $\Pi_0$. Thus we know that the colorings of active nodes only generate configurations that are in $P_0$.
 \end{proof}
 
 Moving to the LOCAL model violates the independency requirement, as two blind spots cannot have the same unique identifiers. Another way to break independency is to choose a very large $r$. If $r$ is so large that it could contain the whole network, the size of the network could prevent the largest options for the blind spots from existing at the same time.
@@ -452,9 +452,9 @@ Round Elimination produces a gigantic number of configurations. Especially the n
 
 One simple optimization is to discard all active configurations containing symbols that don't appear in any passive configurations and vice versa, as using them is impossible. But even more can be discarded.
 
-As mentioned earlier, the lines of $\Pi_0$ are just like the configurations of $\Pi_1$. (Which is why I'm using line notation to write the latter as well.) In terms of lines, $A_1$ is the set of all \emph{valid} lines wrt. $P_0$, where valid lines are lines that only generate configurations that are in $P_0$.
+As mentioned earlier, the lines of $\Pi_0$ are just like the configurations of $\Pi_1$. (Which is why I am using line notation to write the latter as well.) In terms of lines, $A_1$ is the set of all \emph{valid} lines wrt. $P_0$, where valid lines are lines that only generate configurations that are in $P_0$.
 
-I will now show that using only some valid lines as $A_1$ instead of \emph{all} valid lines creates a problem has strictly less solutions than $\Pi_1$ but is exactly as hard.
+I will now show that using only some valid lines as $A_1$ instead of all valid lines creates a problem has strictly less solutions than $\Pi_1$ but is exactly as hard.
 
 \subsubsection{Domination}
 
@@ -523,7 +523,7 @@ Most sets of configurations can be represented by many different sets of lines b
 
 I will show that there is only one way to turn configurations generated by a line back into a line.
 
-Every color must be present in the line as many times as in the configuration that contains the highest number of it. Less obviously wouldn't work and if it was present more times, there would be a configuration containing it that many times.
+Every color must be present in the line as many times as in the configuration that contains the highest number of it. Less obviously would not work and if it was present more times, there would be a configuration containing it that many times.
 
 Using the information from the previous paragraph, it is possible to figure out the overlap between any two colors $a$ and $b$. If there is no configuration with all $a$s and all $b$s, one set in the line must have both. The magnitude of the overlap is the difference of how many $a$s and $b$s there are and the highest number of $a$ and $b$ seen at the same time.
 
@@ -537,7 +537,7 @@ Let $o$ be a function from sets of colors to the maximum number of them that is 
   ...
 \end{align*}
 
-Now the line can be reconstructed by repeatedly adding the largest set for which $s$ is nonzero and subtracting one from all values of $s$ associated with a subset of it. Any deviation from the process would yield a line which doesn't produce the same configurations, so the line is unique.
+Now the line can be reconstructed by repeatedly adding the largest set for which $s$ is nonzero and subtracting one from all values of $s$ associated with a subset of it. Any deviation from the process would yield a line which does not produce the same configurations, so the line is unique.
 
 \subsection{Putting it all together}
 
@@ -554,7 +554,7 @@ Finally, to make the representation more compact, $\Sigma_1$ is converted from s
 
 \section{Maximization via line combination}\label{nlproof}
 
-In this section I will present a maximization algorithm based on combining lines and prove its correctness. In Section~\ref{mechproof}, I will present the corresponding Coq lemmas.
+In this section I will present a maximization algorithm based on combining lines and prove its correctness. The lemmas closely follow ones I have proved in Coq. The details only relevant to the proof in Coq are discussed in Section~\ref{mechproof}.
 
 \subsection{Combining lines}
 
