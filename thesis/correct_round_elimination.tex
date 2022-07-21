@@ -979,9 +979,28 @@ Definition nonzero := all (λ x : {set color}, #|x| != 0).
 
 An \icoq{Inductive} definition in Coq is very similar to what is known as a generalized algebraic data type (GADT) in Haskell.
 
-Type constructors in general can be thought of as opaque functions that can be performed in reverse. GADTs make this explicit, as they are defined by writing the type of each type constructor.
+Type constructors in general can be thought of as opaque functions that can be performed in reverse. GADTs make this explicit, as they are defined by writing the type of each type constructor. Like most things in Coq, the constructors in inductive definitions can be dependently typed.
 
-TODO
+Depicted below is the only inductive definition in my code. They usually define data structure but mathematical components already contains the data structures that I need, so this one is used as a specification. It is a proof that a line can be obtained by repeatedly combining input lines. There are two cases: either the line is in the input, or the line can be constructed from two other lines that can be constructed out of input lines.
+
+\begin{minted}{Coq}
+Inductive iterated_combination : line -> Prop :=
+    present : ∀ a, a \in input -> iterated_combination a
+  | combined : ∀ (a b c : line), iterated_combination a -> iterated_combination b ->
+      combination_of a b c -> nonzero c -> iterated_combination c.
+\end{minted}
+
+Data structures like this are just like Prolog specifications. The same could be written in Prolog as follows.
+\begin{minted}{Prolog}
+iterated_combination(A) :- in_input(A).
+iterated_combination(C) :-
+  combination_of(A, B, C),
+  iterated_combination(A),
+  iterated_combination(B).
+\end{minted}
+But Prolog has a fixed evaluation strategy. In Coq, the evaluation strategy is controlled by writing tactics (see Section~\ref{ltac}).
+
+These kinds of specifications are generally very easy to read but in this one it is not clear why \icoq{c} needs to be \icoq{nonzero}. But that doesn't matter because this one is only used in an intermediate step, rather than the final theorem's specification.
 
 \subsection{Totality}\label{totality}
 
