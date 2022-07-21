@@ -43,8 +43,11 @@
 \keywords{For keywords choose\spc{}concepts that are\spc{}central to your\spc{}thesis}
 
 \thesisabstract{
-Your abstract in English. Cannot contain special characters, linebreak or paragraph
-break characters as it is written into the metadata.
+Round Elimination is a process used to study the hardness of distributed graph problems.
+It is implemented as a computer program and optimizations to the program have permitted the study of more complex problems.
+I invented a new algorithm for maximization, the slowest part of Round Elimination, proved that the new algorithm is asymptotically faster and formally verified the theory behind it in Coq.
+I wrote a program that checks maximization results using the new algorithm and verified it as well.
+Unfortunately the verified program is too slow for practical use but a nearly identical program TODO
 }
 
 %% Copyright text. Copyright of a work is with the creator/author of the work
@@ -96,8 +99,10 @@ break characters as it is written into the metadata.
 
 \begin{tabular}{ll}
   $\Delta$ & graph maximum degree \\
-  $\Pi$    & round elimination problem \\
-  $\Sigma$ & round elimination problem alphabet
+  $\Pi_n$    & round elimination problem \\
+  $\Sigma_n$ & alphabet of $\Pi_n$ \\
+  $A_n$      & active side configurations of $\Pi_n$ \\
+  $P_n$      & passive side configurations of $\Pi_n$ \\
 \end{tabular}
 
 \subsection*{Abbreviations}
@@ -109,38 +114,40 @@ break characters as it is written into the metadata.
 
 \cleardoublepage{}
 \section{Introduction}
+%% Leave page number of the first page empty
+\thispagestyle{empty}
+
+TODO
 
 Today's world is filled with software and most of it doesn't always work as intended.
 
-%% Leave page number of the first page empty
-\thispagestyle{empty}
+Round Elimination is a process used to study the hardness of distributed graph problems.
+It can be tedious or downright impossible to perform by hand, as it can multiply the size of its input and has to be applied multiple times in sequence.
 
 \clearpage
 \section{Background}
 
 \subsection{Methods of improving correctness}
 
-Testing can be used to verify the correctness of programs that take a small finite amount of different inputs.
+Unlike the famous Djikstra quote suggests, testing can be used to show the absence of bugs but only in programs that take a small amount of different inputs. When feasible, this is a very good method. The only downside is limited composability: using the result of one test to optimize another quickly gets messy.
 
-Fuzzing means running software against computer-generated inputs. AFL-fuzz~\cite{AFL} is a highly optimized fuzzer that monitors program execution in order to find inputs that trigger previously unexplored execution paths. It has been used to find intricate bugs even in complex software.
+Fuzzing means running software against computer-generated inputs to find crashes. AFL-fuzz~\cite{AFL} is a highly optimized fuzzer that monitors program execution in order to find inputs that trigger previously unexplored execution paths. It has been used to find intricate bugs in complex software. One crash that I have found via fuzzing was caused by code that assumed that one can compute the absolute value of any machine integer. However, taking the absolute value of the smallest representable integer (for example -128 for 8-bit integers) leads to undefined behaviour because there is always one negative integer more than there are positive integers in two's complement.
 
-One crash that I have found by fuzzing was caused by code that assumed that one can compute the absolute value of any machine integer. However, taking the absolute value of the smallest representable integer (for example -128 for 8-bit integers) leads to undefined behaviour because there is always one negative integer more than there are positive integers in two's complement.
+Because of the program instrumentation, fuzzing is able to find interesting inputs even though it cannot go through the whole input space. It optimizes code coverage of the executable rather than the source code. Fuzzing is best at finding crashes but it can be used to find incorrect behaviour by writing a program that crashes whenever an incorrect output is produced. However, that is only effective if outputs can be checked very quickly. Fuzzing is of little use in the case of Round Elimination because RE it is very slow to perform and there is no way to check the result except by running Round Elimination on it. At best, one could compare a new algorithm to a simpler but even slower implementation of RE.\@
 
-Fuzzing is best at finding crashes but it can be used to find incorrect behaviour by writing a program that crashes whenever an incorrect output is produced. However it is only effective if outputs can be computed and checked very quickly.
+SAT solvers are programs that are optimized for solving the boolean satisfiability problem. They can be used to find cases where formulas fail on finite but relatively large inputs and even perform an exhaustive search to show that no such cases exist. The biggest downside is that turning algoriths into boolean formulas can be challenging.
 
-SAT-solvers can be used to find cases where algorithms fail on finite but relatively large inputs and even perform an exhaustive search to show that no such cases exist.
+Just like fuzzers, SAT solvers suffer from the problem that Round Elimination is difficult to check. If it was easy to check, one could just ask a SAT solver to find a solution. I actually did that with Z3 but as expected, the performance was bad because the input was pretty big.
 
-Formal proof can establish correctness of algorithms even for arbitrarily large inputs. Proofs are completely unaffected by how expensive it is to compute or check outputs. Unfortunately, theories that are simple to state can have very large proofs.
+Formal proof can establish correctness of algorithms even for arbitrarily large inputs and is completely unaffected by how expensive it is to compute or check outputs, which makes it ideal for verifying Round Elimination. Unfortunately, theories that are simple to state can have very large proofs.
 
 \subsection{History of computer-aided mathematics}
 
 Perharps the most notable example is Thomas Hales' proof of the Kepler conjecture. The Kepler conjecture states that there is no way of packing spheres more densely than the cannoball packing, in which the spheres are arranged in hexagonally packed layers and those layers are stacked on top of each other. In 1831, Gauss proved a proposition about polynomials that can be used to show that a variant of the aforementioned packing is the densest possible lattice packing of spheres.~\cite{dichteste} However, before Hales' proof the possibility of a denser irregular packing wasn't ruled out.
 
-A proof consisting of a computer program that solves linear programming problems and hundreds of pages of notes was completed in 1998. After four years of inspecting the proof, a panel of twelve referees announced that they couldn't be completely certain if the computer calculations were correct. That prompted Hales to start the Flyspeck project, which completed a complete formal proof of the Kepler conjecture in 2014.
+A proof consisting of a computer program that solves linear programming problems and hundreds of pages of notes was completed in 1998. After four years of inspecting the proof, a panel of twelve referees announced that they couldn't be completely certain if the computer calculations were correct. That prompted Hales to start the Flyspeck project, which completed a complete formal proof of the Kepler conjecture in 2014.~\cite{itpsurvey}
 
-Pitäisiköhän tästä kertoa enemmän?
-
-TODO cite
+TODO
 
 \subsection{Proof automation}
 
@@ -150,7 +157,7 @@ Most proof assistants read a proof script from disk and generate the proofs anew
 
 The other tools prefer human-readable proofs because they are maintainable. You may wonder why a proof needs to be maintainable, as once it is complete, it doesn't need to be modified anymore. The reasons are the same as in software engineering in general: while the proof is in development, there may be unanticipated changes.
 
-As an example, it may turn out that there is a data structure that is easier to work with than the one initially used. \emph{Transporting} the old proofs to the new data structure takes great effort. On the other hand, automated proofs will often work with a different data structure with little to no editing. Besides, if the initial formalization of the mathematical object in question was inaccurate, there is no other option.
+As an example, it may turn out that there is a data structure that is easier to work with than the one initially used. \emph{Transporting} the old proofs to the new data structure takes great effort. On the other hand, automated proofs will often work with a different data structure with little to no editing. Besides, if the initial formalization of the mathematical object in question was inaccurate, there is no other option than to change data structures.
 
 \subsubsection{Aside: transporting proofs}\label{transport}
 
