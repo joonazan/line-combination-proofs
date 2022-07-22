@@ -117,12 +117,17 @@ Unfortunately the verified program is too slow for practical use but a nearly id
 %% Leave page number of the first page empty
 \thispagestyle{empty}
 
-TODO
+Programming languages that completely eliminate invalid memory accesses or even the bulk of crashes have entered the mainstream. Yet all mainstream languages are Turing-complete and as a consequence allow writing programs that keep running forever. (Infinite loops are undefined behaviour in C, so arguably programs containing them are not valid and recognizing valid C programs is undecidable.) Writing programs that not only run to completition but even behave as intended is still commonly viewed as infeasible or prohibitively expensive.
 
-Today's world is filled with software and most of it doesn't always work as intended.
+At the same time, computers have become an integral part of mathematical research. This is rather surprising – while mathematicians have published many mistakes, most programs contain several, in some cases several per line of code. Still, computer programs are good for testing conjectures on millions of different inputs in the hope of finding a small counterexample that is easy to check by hand. But not all outputs are easy to check.
 
-Round Elimination is a process used to study the hardness of distributed graph problems.
-It can be tedious or downright impossible to perform by hand, as it can multiply the size of its input and has to be applied multiple times in sequence.
+Round elimination is a process used in proofs about the time complexity of distributed algorithms. Even the best known method of checking the result of RE implements most of RE, so the only way to produce reliable results is to have a reliable implementation.
+
+Round elimination can be tedious or downright impossible to perform by hand, as it may have to be applied multiple times in succession with every application multiplying the size of the working set. Faster algorithms have allowed RE to be used on a wider variety of problems, so speeding it up is desirable. 
+
+Hence, the goal of this thesis is to produce a faster but also trustworthy implementation of round elimination. I tackle only one part of RE, maximization, as that part accounts for most of the computation time and is easy to specify.
+
+Section~\ref{resection} explains how to perform round elimination and how it helps in analyzing the class of problems introduced in Section~\ref{lclsection}. Section~\ref{nlproof} is a proof sketch derived from the mechanized proof discussed in Section~\ref{mechproof}, which I wrote for the new maximization algorithm that I developed. Finally, Section~\ref{performance} compares the asymptotic performance of the new algorithm to the state of the art.
 
 \clearpage
 \section{Background}
@@ -145,7 +150,7 @@ Formal proof can establish correctness of algorithms even for arbitrarily large 
 
 Perharps the most notable example is Thomas Hales' proof of the Kepler conjecture. The Kepler conjecture states that there is no way of packing spheres more densely than the cannoball packing, in which the spheres are arranged in hexagonally packed layers and those layers are stacked on top of each other. In 1831, Gauss proved a proposition about polynomials that can be used to show that a variant of the aforementioned packing is the densest possible lattice packing of spheres.~\cite{dichteste} However, before Hales' proof the possibility of a denser irregular packing wasn't ruled out.
 
-A proof consisting of a computer program that solves linear programming problems and hundreds of pages of notes was completed in 1998. After four years of inspecting the proof, a panel of twelve referees announced that they couldn't be completely certain if the computer calculations were correct. That prompted Hales to start the Flyspeck project, which completed a complete formal proof of the Kepler conjecture in 2014.~\cite{itpsurvey}
+A proof consisting of computer programs that (among other things) solved linear programming problems and hundreds of pages of notes was completed in 1998. After four years of inspecting the proof, a panel of twelve referees announced that they couldn't be completely certain if the computer calculations were correct. That prompted Hales to start the Flyspeck project, which completed a formal proof of the Kepler conjecture in 2014 and found a few bugs in the original code.~\cite{itpsurvey}
 
 TODO
 
@@ -183,7 +188,7 @@ I don't use this kind of automation in my code, as I only learned about it after
 
 \clearpage % otherwise the figures in the next section don't behave
 
-\section{Locally Checkable Labeling}
+\section{Locally Checkable Labeling}\label{lclsection}
 
 Locally checkable labeling (LCL) is a family of graph problems in which one has to assign colors to edges or vertices, satisfying some locally checkable condition.~\cite{LCL}
 
@@ -326,7 +331,7 @@ P &= \{[(c_1, c_2, c_3), (c_2, c_1, c_4)] \mid \text{for all distinct } c_1, c_2
 \end{align*}
 Just like in sinkless orientation, the edges become passive nodes. The first value of each triplet is the color of the nearest node, the second one is the color of the neighbor the edge is going towards and the third value is the color of the other neighbor.
 
-\section{Round Elimination}
+\section{Round Elimination}\label{resection}
 
 Brandt et al.~\cite{speedup} introduced round elimination in 2019. It is a procedure that takes a round elimination problem $\Pi_0$ and outputs a new problem $\Pi_1$. It has interpretations in various models of distributed computing. As the name suggests, $\Pi_1$ can generally be solved one round faster than $\Pi_0$.
 
@@ -541,7 +546,7 @@ Let $o$ be a function from sets of colors to the maximum number of them that is 
   o(\{a\}) &= s(\{a\}) \\
   s(\{a, b\}) &= s(\{a\}) + s(\{b\}) - o(\{a, b\}) \\
   s(\{a, b, c\}) &= s(\{a, b\}) + s(\{a, c\}) + s(\{b, c\}) - o(\{a, b, c\}) \\
-  ...
+  \cdots
 \end{align*}
 
 Now the line can be reconstructed by repeatedly adding the largest set for which $s$ is nonzero and subtracting one from all values of $s$ associated with a subset of it. Any deviation from the process would yield a line which does not produce the same configurations, so the line is unique.
@@ -1168,7 +1173,7 @@ For example, when pattern matching on an array's length, the code in the match a
 
 Pattern matching in many other languages is much easier to use but they typically rely on axiom K for pattern matching, limiting the settings the language can be used in; for example, Homotopy type theory's Univalence axiom is incompatible with axiom K. Cockx et al.~\cite{withoutK} developed and formally proved a version of dependent pattern matching without K in 2014 that is available in Agda today.
 
-\section{Performance}
+\section{Performance}\label{performance}
 
 Maximization is the most expensive part of the original Round Eliminator's algorithm. Maximization via line combination is orders of magnitude faster in practice and is resistant to some pathological inputs but it remains the most computationally expensive part of round elimination. % TODO add to abstract maybe?
 
