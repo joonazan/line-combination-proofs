@@ -117,9 +117,11 @@ Unfortunately the verified program is too slow for practical use but a nearly id
 %% Leave page number of the first page empty
 \thispagestyle{empty}
 
-Programming languages that completely eliminate invalid memory accesses or even the bulk of crashes have entered the mainstream. Yet all mainstream languages are Turing-complete and as a consequence allow writing programs that keep running forever. (Infinite loops are undefined behaviour in C, so arguably programs containing them are not valid and recognizing valid C programs is undecidable.) Writing programs that not only run to completition but even behave as intended is still commonly viewed as infeasible or prohibitively expensive.
+Today's world is filled with software and most of it does not always work as intended. The consequences range from mere annoyances to expensive or life-threatening incidents.
 
-At the same time, computers have become an integral part of mathematical research. This is rather surprising – while mathematicians have published many mistakes, most programs contain several, in some cases several per line of code. Still, computer programs are good for testing conjectures on millions of different inputs in the hope of finding a small counterexample that is easy to check by hand. But not all outputs are easy to check.
+Programming languages that completely eliminate invalid memory accesses or even the bulk of crashes have entered the mainstream. Yet all mainstream languages are Turing-complete and as a consequence allow writing programs that hang indefinitely. (C compilers are allowed to assume that loops with no side effects terminate~\cite{C11}, so arguably C is not Turing-complete and recognizing valid C programs is undecidable.) Writing programs that not only run to completition but even behave as intended is still commonly viewed as infeasible or prohibitively expensive.
+
+At the same time, computers have become an integral part of mathematical research. This is rather surprising – while mathematicians have published many mistakes~\cite{itpsurvey}, most programs contain several. Still, computer programs are good for testing conjectures on millions of different inputs in the hope of finding a small counterexample that is easy to check by hand. But not all outputs are easy to check.
 
 Round elimination is a process used in proofs about the time complexity of distributed algorithms. Even the best known method of checking the result of RE implements most of RE, so the only way to produce reliable results is to have a reliable implementation.
 
