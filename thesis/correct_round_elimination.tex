@@ -136,7 +136,7 @@ Section~\ref{resection} explains how to perform round elimination and how it hel
 
 \subsection{Methods of improving correctness}
 
-Unlike the famous Djikstra quote suggests, testing can be used to show the absence of bugs but only in programs that take a small amount of different inputs. When feasible, this is a very good method. The only downside is limited composability: using the result of one test to optimize another quickly gets messy.
+Testing can in fact be used to show the absence of bugs, but only in programs that take a small amount of different inputs. On the other hand, such a program is only as powerful as a look-up table.
 
 Fuzzing means running software against computer-generated inputs to find crashes. AFL-fuzz~\cite{AFL} is a highly optimized fuzzer that monitors program execution in order to find inputs that trigger previously unexplored execution paths. It has been used to find intricate bugs in complex software. One crash that I have found via fuzzing was caused by code that assumed that one can compute the absolute value of any machine integer. However, taking the absolute value of the smallest representable integer (for example -128 for 8-bit integers) leads to undefined behaviour because there is always one negative integer more than there are positive integers in two's complement.
 
@@ -144,7 +144,7 @@ Because of the program instrumentation, fuzzing is able to find interesting inpu
 
 SAT solvers are programs that are optimized for solving the boolean satisfiability problem. They can be used to find cases where formulas fail on finite but relatively large inputs and even perform an exhaustive search to show that no such cases exist. The biggest downside is that turning algoriths into boolean formulas can be challenging.
 
-Just like fuzzers, SAT solvers suffer from the problem that round elimination is difficult to check. If it was easy to check, one could just ask a SAT solver to find a solution. I actually did that with Z3 but as expected, the performance was bad because the input was pretty big.
+Just like fuzzers, SAT solvers suffer from the problem that round elimination is difficult to check. If it was easy to check, one could just ask a SAT solver to find a solution. I actually did that with Z3 but as expected, the performance was bad because the boolean encoding of what a correct result of maximization is is very large.
 
 Formal proof can establish correctness of algorithms even for arbitrarily large inputs and is completely unaffected by how expensive it is to compute or check outputs, which makes it ideal for verifying round elimination. Unfortunately, theories that are simple to state can have very large proofs.
 
