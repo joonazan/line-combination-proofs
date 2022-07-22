@@ -2,24 +2,12 @@ Introduction
     työn tavoitteet
 
 Background
-    siirrytään fuzzaamiseen ilman että kerrotaan että nyt puhutaan eri tavoista tehdä bugitonta softaa
-    mikä on SAT-solver
     selitä ATP
-    Halesistä lisää
-    muita setiä
-    2.1 Coqin tms. historiaa
     mainitse electrolysis
-
-Type theory
-    kerro universumeista
-    kerro curry-howardista
 
 Mechanized proof
     vinoile esim. variables ekalla maininnalla
-    kerro rivien esitysmuoto (pitää permutoida kaikessa)
-    Laita koodirivi tekstin sekaan kuin matikkaa tehdessä
-
-    Besides Ltac, proofs can be automated with external solvers (lia) and Canonical structures (link paper)
+    mainitse external solvers (lia)
 
 Discussion
     sano eksplisiittisesti että on työlästä tällä hetkellä tarkistaa REllä tehty todistus
