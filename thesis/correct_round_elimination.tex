@@ -192,11 +192,15 @@ Unlike other attempts, Univalent foundations~\cite{hottbook} support transportin
 
 \subsubsection{Tactics languages}
 
-TODO even Automath had an automation language
+Interactive theorem provers typically have a separate tactics language, which is used to direct proofs. The ML family of programming languages which Coq belongs to, spawned from the tactics language of Automath~\cite{automath}, an early proof assistant developed by de Bruijn. For Coq, the Mtac2 plugin allows writing tactics in Coq itself rather than its tactics language Ltac~\cite{coqRefman}.
+
+Tactics languages are designed very differently from specification languages, as the correctness of tactics programs does not need to be clear to the reader. They are typically untyped and highly implicit. However, Coq's reference manual~\cite{coqRefman} reports that defining complex tactics in the Ltac language has shown its fragility. It is not clear what an ideal tactics language would look like.
 
 \subsubsection{Reflection}
 
 Procedures like solving linear programming problems can be directly incorporated into proofs but compared to a function implementing the procedure, they perform poorly and produce large proofs that consume a lot of memory. Instead, one can implement the procedure, prove it correct and use it in a proof.~\cite{CPDT}
+
+Reflection is the process of converting a Coq term to a representation that can be manipulated in Coq itself and back. Certified Programming with Dependent Types~\cite{CPDT} automates this with tactics but Coq's canonical structures can also be used effectively for that task~\cite{overloadingCanonical} as outlined next.
 
 \subsubsection{Type classes}
 
