@@ -109,7 +109,9 @@ Unfortunately the verified program is too slow for practical use but a nearly id
 
 \begin{tabular}{ll}
   RE         & round elimination \\
-  GADT       & generalized algebraic data type
+  GADT       & generalized algebraic data type \\
+  ATP        & automatic theorem prover \\
+  ITP        & interactive theorem prover
 \end{tabular}
 
 \cleardoublepage{}
@@ -134,7 +136,7 @@ Section~\ref{resection} explains how to perform round elimination and how it hel
 \clearpage
 \section{Background}
 
-\subsection{Methods of improving correctness}
+\subsection{Conventional methods of improving correctness}
 
 Testing can in fact be used to show the absence of bugs, but only in programs that take a small amount of different inputs. On the other hand, such a program is only as powerful as a look-up table.
 
@@ -146,25 +148,27 @@ SAT solvers are programs that are optimized for solving the boolean satisfiabili
 
 Just like fuzzers, SAT solvers suffer from the problem that round elimination is difficult to check. If it was easy to check, one could just ask a SAT solver to find a solution. I actually did that with Z3 but as expected, the performance was bad because the boolean encoding of what a correct result of maximization is is very large.
 
-TODO asserts would be acceptable in scientific unlike in other uses
+It seems that the more popular methods focus on making sure that the produces a correct result most of the time, operating on the assumption that the result is easy to verify. The requirements of software for mathematical research are very different. It is completely acceptable for the software to sometimes fail, as long as it is correct when it succeeds. Given a way to check an output, the easiest way to achieve that is with a runtime assertion.
 
-Formal proof can establish correctness of algorithms even for arbitrarily large inputs and is completely unaffected by how expensive it is to compute or check outputs, which makes it ideal for verifying round elimination. But ideally, I would like to prove that an implementation is correct, not just the algorithm.
+\subsection{Theorem proving}
 
-I chose to write the implementation in Coq, which is also a both a logic and a programming language (see Section~\ref{dependent}), so there was no need to somehow import the program into a logic. Embedding round elimination in Coq makes it possible to prove whole reasoning chains, while a verified implementation of only round elimination could be given the wrong input.
+A mechanized proof is a fully formal proof in the spirit of Principia Mathematica, checked by a computer. It can establish correctness of algorithms even for arbitrarily large inputs and is completely unaffected by how expensive it is to compute or check outputs, which makes it ideal for verifying round elimination. But ideally, I would like to prove that an implementation is correct, not just the algorithm.
+
+I chose to write the implementation in Coq, which is also a both a logic and a programming language (see Section~\ref{dependent}), so there was no need to somehow import the program into a logic to allow proving it. Embedding round elimination in Coq makes it possible to prove whole reasoning chains, while a verified implementation of only round elimination could be accidentally given the wrong input.
 
 Another option is to generate lemmas from the source code that is being verified. The seL4 microkernel~\cite{sel4} has been developed in that fashion, for example. High performance and low level access to hardware is vital when implementing an operating system, so it is desirable to write it in C rather than a safe high-level language.
 
-TODO electrolysis
+Electrolysis~\cite{electrolysis} is an interesting take on the latter. It is a direct translation from a subset of Rust to Lean 2 (a theorem prover similar to Coq) that preserves semantics but not performance. It could have worked well for me as I would have gotten a Rust and a Lean implementation of the algorithm but unfortunately version 2 of Lean is very old, as is the required version of Rust.
 
-Unfortunately, theories that are simple to state can have very large proofs.
+The most straightforward way to write the proof is to use an automatic theorem prover. But the power of ATPs is somewhat limited; that they would not be able to prove something as complex as a round elimination algorithm. The ATP's job can be made easier by splitting the proof into smaller lemmas but not all proofs can be subdivided in a productive way.
 
-\subsection{History of computer-aided mathematics}
+Interactive theorem provers, on the other hand, have been used to verify contemporary mathematics.~\cite{itpsurvey} In them, the user controls constructs the proof in a conversation with a computer program. The user indicates how to advance the proof and the program reports the new state after that.
 
-Perharps the most notable example is Thomas Hales' proof of the Kepler conjecture. The Kepler conjecture states that there is no way of packing spheres more densely than the cannoball packing, in which the spheres are arranged in hexagonally packed layers and those layers are stacked on top of each other. In 1831, Gauss proved a proposition about polynomials that can be used to show that a variant of the aforementioned packing is the densest possible lattice packing of spheres.~\cite{dichteste} However, before Hales' proof the possibility of a denser irregular packing wasn't ruled out.
+There have been relatively successful attempts to allow the use of ATPs inside ITPs, like Hammer for Coq~\cite{CoqHammer} named after the similar Sledgehammer in Isabelle/HOL.\@ Lemmas have to be lowered in a lossy process because the best ATPs operate on first order logic but ITPs use higher-order logics, as they are more palatable to humans and even necessary to encode some mathematical objects. Because of the conversion, some lemmas are successfully proved in an ATP but the proof is not accepted by the ITP.\@ This is subject to change as the popular TPTP~\cite{tptp} problem set for ATPs has added problems in a typed higher-order form.
 
-A proof consisting of computer programs that (among other things) solved linear programming problems and hundreds of pages of notes was completed in 1998. After four years of inspecting the proof, a panel of twelve referees announced that they couldn't be completely certain if the computer calculations were correct. That prompted Hales to start the Flyspeck project, which completed a formal proof of the Kepler conjecture in 2014 and found a few bugs in the original code.~\cite{itpsurvey}
+Perharps the most notable example of an ITP proof is Thomas Hales' proof of the Kepler conjecture. The Kepler conjecture states that there is no way of packing spheres more densely than the cannoball packing, in which the spheres are arranged in hexagonally packed layers and those layers are stacked on top of each other. In 1831, Gauss proved a proposition about polynomials that can be used to show that a variant of the aforementioned packing is the densest possible lattice packing of spheres.~\cite{dichteste} However, before Hales' proof the possibility of a denser irregular packing wasn't ruled out.
 
-TODO
+A proof consisting of computer programs that (among other things) solved linear programming problems and hundreds of pages of notes was completed in 1998. After four years of inspecting the proof, a panel of twelve referees announced that they couldn't be completely certain if the computer calculations were correct. That prompted Hales to start the Flyspeck project, which completed a formal proof of the Kepler conjecture written in HOL Light in 2014 and found a few bugs in the original code.~\cite{itpsurvey}
 
 \subsection{Proof automation}
 
