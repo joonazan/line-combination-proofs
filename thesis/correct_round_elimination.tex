@@ -146,7 +146,17 @@ SAT solvers are programs that are optimized for solving the boolean satisfiabili
 
 Just like fuzzers, SAT solvers suffer from the problem that round elimination is difficult to check. If it was easy to check, one could just ask a SAT solver to find a solution. I actually did that with Z3 but as expected, the performance was bad because the boolean encoding of what a correct result of maximization is is very large.
 
-Formal proof can establish correctness of algorithms even for arbitrarily large inputs and is completely unaffected by how expensive it is to compute or check outputs, which makes it ideal for verifying round elimination. Unfortunately, theories that are simple to state can have very large proofs.
+TODO asserts would be acceptable in scientific unlike in other uses
+
+Formal proof can establish correctness of algorithms even for arbitrarily large inputs and is completely unaffected by how expensive it is to compute or check outputs, which makes it ideal for verifying round elimination. But ideally, I would like to prove that an implementation is correct, not just the algorithm.
+
+I chose to write the implementation in Coq, which is also a both a logic and a programming language (see Section~\ref{dependent}), so there was no need to somehow import the program into a logic. Embedding round elimination in Coq makes it possible to prove whole reasoning chains, while a verified implementation of only round elimination could be given the wrong input.
+
+Another option is to generate lemmas from the source code that is being verified. The seL4 microkernel~\cite{sel4} has been developed in that fashion, for example. High performance and low level access to hardware is vital when implementing an operating system, so it is desirable to write it in C rather than a safe high-level language.
+
+TODO electrolysis
+
+Unfortunately, theories that are simple to state can have very large proofs.
 
 \subsection{History of computer-aided mathematics}
 
@@ -179,6 +189,10 @@ Unlike other attempts, Univalent foundations~\cite{hottbook} support transportin
 \subsubsection{Tactics languages}
 
 TODO even Automath had an automation language
+
+\subsubsection{Reflection}
+
+Procedures like solving linear programming problems can be directly incorporated into proofs but compared to a function implementing the procedure, they perform poorly and produce large proofs that consume a lot of memory. Instead, one can implement the procedure, prove it correct and use it in a proof.~\cite{CPDT}
 
 \subsubsection{Type classes}
 
@@ -845,20 +859,6 @@ cannot ensure that "Type@{id.u0+1}" is a subtype of "Type@{id.u0}").
 \end{verbatim}
 
 Especially with the improvements in inference, typical users rarely encounter universes. There is already experimental support for universe polymorphism~\cite{coqRefman} which completely eliminates the problem in the above example by allowing use of the same definition with different universe levels.
-
-\subsection{Why Coq}
-
-When I started this project, I chose Coq simply because it is very mature and I knew it to be powerful enough. I now know that type theory based proof assistants like Coq are especially suited to this kind of task because they are capable of \emph{reflection}.
-
-Reflection means that one is allowed to prove something by writing a program that checks it, proving that program correct and then using the program in a proof. The key thing that enables reflection in Coq is that its language Gallina is both a programming language and a logic at the same time.
-
-On the flip side, because of Coq's complexity, there are only relatively weak automatic theorem provers for it.
-
-Certified Programming with Dependent Types~\cite{CPDT} has a chapter that goes through progressively more complicated uses of reflection.
-
-To verify a program in a proof assistant that does not support programming, one has to generate lemmas from the source code that is being verified. The seL4 microkernel~\cite{sel4} has been developed in that fashion, for example. That makes sense because high performance and low level access to hardware is vital when implementing an operating system.
-
-Besides, round elimination is commonly used as a subroutine in proofs, while operating systems are not. Embedding round elimination in Coq makes it possible to prove whole reasoning chains, while a verified implementation of only round elimination could be given the wrong input.
 
 \section{Mechanized proof}\label{mechproof}
 
