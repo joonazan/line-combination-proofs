@@ -1187,7 +1187,7 @@ Pattern matching in many other languages is much easier to use but they typicall
 
 Maximization is the most expensive part of the original Round Eliminator's algorithm. Maximization via line combination is orders of magnitude faster in practice and is resistant to some pathological inputs but it remains the most computationally expensive part of round elimination. % TODO add to abstract maybe?
 
-Evaluating the performance of maximization is difficult, as its output can be exponentially larger than its input. However, there is no known algorithm for checking maximality that is more efficient than performing maximization. Therefore I will compare different algorithms' performance on the decision problem of finding out whether a set of lines is maximal or not.
+Evaluating the performance of maximization is difficult, as its output can be exponentially larger than its input. However, there is no known algorithm for checking maximality that is significantly better than performing maximization. Therefore I will compare different algorithms' performance on the decision problem of finding out whether a set of lines is maximal or not.
 
 \subsection{Time complexity of the best previously known algorithm}
 
@@ -1201,7 +1201,7 @@ The algorithm computes the set of invalid configurations by filtering all $|\Sig
 
 After removing each configuration, dominated lines are discarded with an $O(\Delta n^2)$ pass.
 
-It is unclear how exactly the size of the maximal form develops, so the average number of lines is unknown. Assuming that the number of lines grows linearly, the time complexity of checking maximality is $O(|\Sigma|^{\Delta}{(n\Delta!)}^2)$.
+It is unclear how exactly the size of the maximal form develops, so the average number of lines is unknown. Assuming that the number of lines stays within a constant factor of the number of lines at the end, the time complexity of checking maximality is $O(|\Sigma|^{\Delta}{(n\Delta!)}^2) = O(|\Sigma|^{\Delta}n^2(\Delta!)^2)$.
 
 There is an adversarial input that defeats this algorithm. Just concatenate multiple copies of an input, renamed so that each has its own disjoint subset of the alphabet. Then the number of valid lines grows linearly with the size of the input but the number of possible configurations grows to the power of the degree.
 
@@ -1215,17 +1215,21 @@ Computing the combinations is feasible even for large $\Delta$ when the lines co
 
 Comparing two lines can be done by building a bipartite graph where each bipartition represents one of the lines and connecting one side's sets to every set on the other side that is included in them. If there is a perfect matching, one line dominates the other. Bipartite perfect matching can be solved in $O(\Delta^{2.5})$ via the Hopcroft-Karp algorithm. In practice it seems that a backtracking search can be faster but that could be asymptotically worse.
 
-The resulting time complexity is $O(n^2\Delta\Delta!n\Delta^{2.5}) = O(n^3\Delta!)$. Notably, the size of the alphabet has no effect on running time anymore.
+The resulting time complexity is $O(n^2\Delta\Delta!n\Delta^{2.5}) = O(n^3\Delta^{3.5}\Delta!)$. Notably, the size of the alphabet has no effect on running time anymore.
 
 In practical implementations there are tricks for quickly discarding most results of line combination, so the power of $n$ is closer to 2 than 3. But I haven't proved that.
 
+Another benefit of the new algorithm is that checking maximality with it requires only $O(1)$ extra space, while the old one requires $O(|\Sigma|^{\Delta} + n\Delta!)$. Practical implementations of the new algorithm use some extra memory for a cache of previously discarded lines.
+
 \subsection{In practice}
 
-I and Dennis Olivetti both implemented the new algorithm in the Rust programming language. Both are publicly available at https://github.com/joonazan/maximizer and https://github.com/olidennis/round-eliminator respectively.
+I and Dennis Olivetti both implemented the new algorithm in the Rust programming language. Both are publicly available at https://github.com/joonazan/maximizer and https://github.com/olidennis/round-eliminator (branch round-eliminator-2) respectively.
 
 Both implementations compare new lines against other lines originating from the same pair of lines before comparing against the rest. This is worthwhile based on the assumption that many of the new lines are just inferior versions of the best lines of that batch.
 
 Olivetti showed me that maintaining a set of dominated lines and checking new lines against that set before doing any comparisons improves performance by an order of magnitude in practice, which means that at least in the inputs tested, tens of copies of some useless lines are created.
+
+A problem that took Olivetti's implementation of the old algorithm several minutes was solved in a hundredth of a second by my implementation of the new algorithm. Olivetti managed to run the new algorithm on problems with $\Delta > 10$ by optimizing for the case when lines contain the same set multiple times. Those problems were previously infeasible.
 
 I would have liked to measure the performance of the Coq function \icoq{is_maximal_form} but it turns out that even on the smallest possible input it requires a finite but large amount of memory. The next section explains how that shortcoming could be rectified.
 
