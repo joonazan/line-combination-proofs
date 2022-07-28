@@ -21,6 +21,8 @@
 \AtBeginEnvironment{minted}{\dontdofcolorbox}
 \def\dontdofcolorbox{\renewcommand\fcolorbox[4][]{##4}}
 
+\renewcommand{\UrlFont}{\ttfamily\footnotesize}
+
 \usepackage{graphicx}
 \graphicspath{{./images/}}
 
@@ -40,14 +42,13 @@
 %% \uselogo{aaltoRed|aaltoBlue|aaltoYellow|aaltoGray|aaltoGrayScale}{?|!|''}
 \uselogo{aaltoRed}{''}
 
-\keywords{For keywords choose\spc{}concepts that are\spc{}central to your\spc{}thesis}
+\keywords{round elimination\spc{}Coq\spc{}distributed algorithms\spc{}formal proof}
 
 \thesisabstract{
-Round Elimination is a process used to study the hardness of distributed graph problems.
-It is implemented as a computer program and optimizations to the program have permitted the study of more complex problems.
-I invented a new algorithm for maximization, the slowest part of Round Elimination, proved that the new algorithm is asymptotically faster and formally verified the theory behind it in Coq.
-I wrote a program that checks maximization results using the new algorithm and verified it as well.
-Unfortunately the verified program is too slow for practical use but a nearly identical program TODO
+Round elimination is a process used to study the hardness of distributed graph problems. It is available as a computer program. Optimizations to the program have permitted the study of more complex problems.
+Because no fast algorithm for checking the result of round elimination is known, it must be implemented correctly.
+In this thesis I present a new algorithm for maximization, the most computationally expensive part of the original Round Eliminator, prove that the new algorithm is asymptotically faster and formally verify the theory behind it in Coq along with a program that checks maximization results using the new algorithm.
+An implementation based on the new algorithm makes round elimination orders of magnitude faster in practice. Unfortunately the verified checker is too slow for practical use but that is not a fundamental limitation, only a flaw in the particular way it was written.
 }
 
 %% Copyright text. Copyright of a work is with the creator/author of the work
@@ -73,12 +74,13 @@ Unfortunately the verified program is too slow for practical use but a nearly id
 \newpage
 
 \thesistitle{Nopea ja virheetön kierroseliminaatio}
-\keywords{Vastus, resistanssi, lämpötila}
+\keywords{kierroseliminaatio, Coq, hajautettu laskenta, matemaattinen todistus}
 
 \begin{abstractpage}[finnish]
-  Tiivistelmässä on lyhyt selvitys
-  kirjoituksen tärkeimmästä sisällöstä: mitä ja miten on tutkittu,
-  sekä mitä tuloksia on saatu. 
+  Kierroseliminaatio on menetelmä, jota käytetään hajautettujen verkko-ongelmien aikavaativuuden tutkimiseen. Siitä tehdyn tietokonetoteutuksen optimoiminen on mahdollistanut yhä mutkikkaampien ongelmien tutkimisen.
+  Koska kierroseliminaation tuloksen tarkistamiseen ei tunneta nopeaa algoritmia, on hyvin tärkeää että kierroseliminaatio on toteutettu oikein.
+  Esittelen tässä työssä uuden algoritmin kierroseliminaation hitaimpaan osaan, maksimointiin. Osoitan, että uuden algoritmin aikavaativuus on vanhaa parempi ja todistan Coqilla teorian johon se perustuu sekä ohjelman kierroseliminaation tuloksen tarkistamiseen.
+  Käytännössä uutta algoritmia hyödyntävä toteutus kierroseliminaatiosta on yli tuhat kertaa vanhaa nopeampi. Valitettavasti todistettu kierroseliminaation tarkistaja on liian hidas ollakseen hyödyllinen, mutta tämä vika on korjattavissa.
 \end{abstractpage}
 
 \thesistableofcontents{}
@@ -121,13 +123,13 @@ Unfortunately the verified program is too slow for practical use but a nearly id
 
 Today's world is filled with software and most of it does not always work as intended. The consequences range from mere annoyances to expensive or life-threatening incidents.
 
-Programming languages that completely eliminate invalid memory accesses or even the bulk of crashes have entered the mainstream. Yet all mainstream languages are Turing-complete and as a consequence allow writing programs that hang indefinitely. (C compilers are allowed to assume that loops with no side effects terminate~\cite{C11}, so arguably C is not Turing-complete and recognizing valid C programs is undecidable.) Writing programs that not only run to completition but even behave as intended is still commonly viewed as infeasible or prohibitively expensive.
+Programming languages that completely eliminate invalid memory accesses or even the bulk of crashes have entered the mainstream. Yet all mainstream languages are Turing-complete and as a consequence allow writing programs that hang indefinitely. Programs that not only do not get stuck but even behave as intended are so rare that there is a large body of research that tries to predict where the bugs are~\cite{defectPrediction}.
 
 At the same time, computers have become an integral part of mathematical research. This is rather surprising – while mathematicians have published many mistakes~\cite{itpsurvey}, most programs contain several. Still, computer programs are good for testing conjectures on millions of different inputs in the hope of finding a small counterexample that is easy to check by hand. But not all outputs are easy to check.
 
-Round elimination is a process used in proofs about the time complexity of distributed algorithms. Even the best known method of checking the result of RE implements most of RE, so the only way to produce reliable results is to have a reliable implementation.
+Round elimination (RE) is a process used in proofs about the time complexity of distributed algorithms~\cite{speedup}. No better algorithm for checking the result of RE than performing RE is known, so the only way to produce reliable results is to have a reliable implementation. (This thesis introduces an algorithm for checking RE that saves some work but involves the same operations as performing it, so implementing it is not significantly easier than implementing full RE.)
 
-Round elimination can be tedious or downright impossible to perform by hand, as it may have to be applied multiple times in succession with every application multiplying the size of the working set. Faster algorithms have allowed RE to be used on a wider variety of problems, so speeding it up is desirable. 
+Round elimination can be tedious or downright impossible to perform by hand, as it may have to be applied multiple times in succession, with every application multiplying the size of the working set. Faster algorithms have allowed RE to be used on a wider variety of problems, so speeding it up is desirable.
 
 Hence, the goal of this thesis is to produce a faster but also trustworthy implementation of round elimination. I tackle only one part of RE, maximization, as that part accounts for most of the computation time and is easy to specify.
 
@@ -136,17 +138,19 @@ Section~\ref{resection} explains how to perform round elimination and how it hel
 \clearpage
 \section{Background}
 
+This section goes over different methods of using computer programs to check software correctness with a focus on theorem proving. For background on round elimination, see Section~\ref{lclsection} and Section~\ref{resection}.
+
 \subsection{Conventional methods of improving correctness}
 
-Testing can in fact be used to show the absence of bugs, but only in programs that take a small amount of different inputs. On the other hand, such a program is only as powerful as a look-up table.
+Testing can in fact be used to show the absence of bugs, but only in programs that take a small number of different inputs. On the other hand, such a program is only as powerful as a look-up table.
 
-Fuzzing means running software against computer-generated inputs to find crashes. AFL-fuzz~\cite{AFL} is a highly optimized fuzzer that monitors program execution in order to find inputs that trigger previously unexplored execution paths. It has been used to find intricate bugs in complex software. One crash that I have found via fuzzing was caused by code that assumed that one can compute the absolute value of any machine integer. However, taking the absolute value of the smallest representable integer (for example -128 for 8-bit integers) leads to undefined behaviour because there is always one negative integer more than there are positive integers in two's complement.
+Fuzzing is the practice of running software against computer-generated inputs to find crashes. AFL-fuzz~\cite{AFL} is a highly optimized fuzzer that monitors program execution in order to find inputs that trigger previously unexplored execution paths. It has been used to find intricate bugs in complex software. One crash that I have found via fuzzing was caused by code that assumed that one can compute the absolute value of any machine integer. However, taking the absolute value of the smallest representable integer (for example $-128$ for 8-bit integers) leads to undefined behaviour because there is always one negative integer more than there are positive integers in two's complement.
 
-Because of the program instrumentation, fuzzing is able to find interesting inputs even though it cannot go through the whole input space. It optimizes code coverage of the executable rather than the source code. Fuzzing is best at finding crashes but it can be used to find incorrect behaviour by writing a program that crashes whenever an incorrect output is produced. However, that is only effective if outputs can be checked very quickly. Fuzzing is of little use in the case of round elimination because RE it is very slow to perform and there is no way to check the result except by running round elimination on it. At best, one could compare a new algorithm to a simpler but even slower implementation of RE.\@
+Because of the program instrumentation, fuzzing is able to find interesting inputs even though it cannot go through the whole input space. It optimizes code coverage of the executable rather than the source code. Fuzzing is best at finding crashes but it can be used to find incorrect behaviour by writing a program that crashes whenever an incorrect output is produced. However, that is only effective if outputs can be checked very quickly. Fuzzing is of little use in the case of round elimination because RE is very slow to perform and there is no way to check the result except by running round elimination on it. At best, one could compare a new algorithm to a simpler but even slower implementation of RE.\@
 
-SAT solvers are programs that are optimized for solving the boolean satisfiability problem. They can be used to find cases where formulas fail on finite but relatively large inputs and even perform an exhaustive search to show that no such cases exist. The biggest downside is that turning algoriths into boolean formulas can be challenging.
+SAT solvers are programs that are optimized for solving the Boolean satisfiability problem. They can be used to find cases where formulas fail on finite but relatively large inputs and even perform an exhaustive search to show that no such cases exist. The biggest downside is that turning algoriths into Boolean formulas can be challenging.
 
-Just like fuzzers, SAT solvers suffer from the problem that round elimination is difficult to check. If it was easy to check, one could just ask a SAT solver to find a solution. I actually did that with Z3 but as expected, the performance was bad because the boolean encoding of what a correct result of maximization is is very large.
+Just like fuzzers, SAT solvers suffer from the problem that round elimination is difficult to check. If it was easy to check, one could just ask a SAT solver to find a solution. I actually did that with Z3 but as expected, the performance was bad because the Boolean encoding of what a correct result of maximization is is very large.
 
 It seems that the more popular methods focus on making sure that the produces a correct result most of the time, operating on the assumption that the result is easy to verify. The requirements of software for mathematical research are very different. It is completely acceptable for the software to sometimes fail, as long as it is correct when it succeeds. Given a way to check an output, the easiest way to achieve that is with a runtime assertion.
 
@@ -154,29 +158,29 @@ It seems that the more popular methods focus on making sure that the produces a 
 
 A mechanized proof is a fully formal proof in the spirit of Principia Mathematica, checked by a computer. It can establish correctness of algorithms even for arbitrarily large inputs and is completely unaffected by how expensive it is to compute or check outputs, which makes it ideal for verifying round elimination. But ideally, I would like to prove that an implementation is correct, not just the algorithm.
 
-I chose to write the implementation in Coq, which is also a both a logic and a programming language (see Section~\ref{dependent}), so there was no need to somehow import the program into a logic to allow proving it. Embedding round elimination in Coq makes it possible to prove whole reasoning chains, while a verified implementation of only round elimination could be accidentally given the wrong input.
+I chose to write the implementation in Coq, which is both a programming language and a logic (see Section~\ref{dependent}), so there was no need to somehow import the program into a logic to allow proving it. Embedding round elimination in Coq makes it possible to prove whole reasoning chains, while a verified implementation of only round elimination could be accidentally given the wrong input.
 
 Another option is to generate lemmas from the source code that is being verified. The seL4 microkernel~\cite{sel4} has been developed in that fashion, for example. High performance and low level access to hardware is vital when implementing an operating system, so it is desirable to write it in C rather than a safe high-level language.
 
 Electrolysis~\cite{electrolysis} is an interesting take on the latter. It is a direct translation from a subset of Rust to Lean 2 (a theorem prover similar to Coq) that preserves semantics but not performance. It could have worked well for me as I would have gotten a Rust and a Lean implementation of the algorithm but unfortunately version 2 of Lean is very old, as is the required version of Rust.
 
-The most straightforward way to write the proof is to use an automatic theorem prover. But the power of ATPs is somewhat limited; that they would not be able to prove something as complex as a round elimination algorithm. The ATP's job can be made easier by splitting the proof into smaller lemmas but not all proofs can be subdivided in a productive way.
+The most straightforward way to write the proof is to use an automatic theorem prover (ATP). But the power of ATPs is somewhat limited; that they would not be able to prove something as complex as a round elimination algorithm. The ATP's job can be made easier by splitting the proof into smaller lemmas but not all proofs can be subdivided in a productive way.
 
-Interactive theorem provers, on the other hand, have been used to verify contemporary mathematics.~\cite{itpsurvey} In them, the user controls constructs the proof in a conversation with a computer program. The user indicates how to advance the proof and the program reports the new state after that.
+Interactive theorem provers (ITPs), on the other hand, have been used to verify contemporary mathematics~\cite{itpsurvey}. In them, the user constructs the proof in a conversation with a computer program. The user indicates how to advance the proof and the program reports the new state after that.
 
-There have been relatively successful attempts to allow the use of ATPs inside ITPs, like Hammer for Coq~\cite{CoqHammer} named after the similar Sledgehammer in Isabelle/HOL.\@ Lemmas have to be lowered in a lossy process because the best ATPs operate on first order logic but ITPs use higher-order logics, as they are more palatable to humans and even necessary to encode some mathematical objects. Because of the conversion, some lemmas are successfully proved in an ATP but the proof is not accepted by the ITP.\@ This is subject to change as the popular TPTP~\cite{tptp} problem set for ATPs has added problems in a typed higher-order form.
+There have been relatively successful attempts to allow the use of ATPs inside ITPs, like Hammer for Coq~\cite{CoqHammer} named after the similar Sledgehammer in Isabelle/HOL.\@ Lemmas have to be converted in a lossy process because the best ATPs operate on first order logic but ITPs use higher-order logics, as they are more palatable to humans and even necessary to encode some mathematical objects. Because of the conversion, some lemmas are successfully proved in an ATP but the proof is not accepted by the ITP.\@ This is subject to change as the popular TPTP~\cite{tptp} problem set for ATPs has added problems in a typed higher-order form.
 
-Perharps the most notable example of an ITP proof is Thomas Hales' proof of the Kepler conjecture. The Kepler conjecture states that there is no way of packing spheres more densely than the cannoball packing, in which the spheres are arranged in hexagonally packed layers and those layers are stacked on top of each other. In 1831, Gauss proved a proposition about polynomials that can be used to show that a variant of the aforementioned packing is the densest possible lattice packing of spheres.~\cite{dichteste} However, before Hales' proof the possibility of a denser irregular packing wasn't ruled out.
+Perharps the most notable example of an ITP proof is Thomas Hales' proof of the Kepler conjecture. The Kepler conjecture states that there is no way of packing spheres more densely than the cannoball packing, in which the spheres are arranged in hexagonally packed layers and those layers are stacked on top of each other. In 1831, Gauss proved a proposition about polynomials that can be used to show that a variant of the aforementioned packing is the densest possible lattice packing of spheres~\cite{dichteste}. However, before Hales' proof the possibility of a denser irregular packing was not ruled out.
 
-A proof consisting of computer programs that (among other things) solved linear programming problems and hundreds of pages of notes was completed in 1998. After four years of inspecting the proof, a panel of twelve referees announced that they couldn't be completely certain if the computer calculations were correct. That prompted Hales to start the Flyspeck project, which completed a formal proof of the Kepler conjecture written in HOL Light in 2014 and found a few bugs in the original code.~\cite{itpsurvey}
+A proof consisting of computer programs that (among other things) solved linear programming problems and hundreds of pages of notes was completed in 1998~\cite{itpsurvey}. After four years of inspecting the proof, a panel of twelve referees announced that they couldn't be completely certain if the computer calculations were correct. That prompted Hales to start the Flyspeck project, which completed a formal proof of the Kepler conjecture written in HOL Light in 2014 and found a few bugs in the original code~\cite{itpsurvey}.
 
 \subsection{Proof automation}
 
 Completely formal proofs can be large and repetitive and a minute change in the theorem to be proved can change their shape. Directly constructing proofs by hand seems like a fool's errand. Instead, the bulk of proofs is produced via various forms of code generation.
 
-Most proof assistants read a proof script from disk and generate the proofs anew on every run. The only exception that I'm aware of is Metamath~\cite{MMZero}, in which a simple program checks a proof file that is not human-readable. The proof file is typically produced with untrusted tools, as only the checker needs to be correct.
+Most proof assistants read a proof script from disk and generate the proofs anew on every run. The only exception that I am aware of is Metamath~\cite{MMZero}, in which a simple program checks a proof file that is not human-readable. The proof file is typically produced with untrusted tools, as only the checker needs to be correct.
 
-The other tools prefer human-readable proofs because they are maintainable. You may wonder why a proof needs to be maintainable, as once it is complete, it doesn't need to be modified anymore. The reasons are the same as in software engineering in general: while the proof is in development, there may be unanticipated changes.
+The other tools prefer human-readable proofs because they are maintainable. One may wonder why a proof needs to be maintainable, as once it is complete, it does not need to be modified anymore. The reasons are the same as in software engineering in general: while the proof is in development, there may be unanticipated changes.
 
 As an example, it may turn out that there is a data structure that is easier to work with than the one initially used. \emph{Transporting} the old proofs to the new data structure takes great effort. On the other hand, automated proofs will often work with a different data structure with little to no editing. Besides, if the initial formalization of the mathematical object in question was inaccurate, there is no other option than to change data structures.
 
@@ -184,11 +188,11 @@ As an example, it may turn out that there is a data structure that is easier to 
 
 It is very common in mathematics to prove something for one representation of a mathematical object and assume that it is true for all isomorphic representations. This notion, while intuitive is not trivial to formalize and current proof assistants do not support it by default.
 
-An easy way to make a proof that applies to all representations of an object is to write a proof that applies to anything with certain properties. For example, instead of relying on a particular representation of natural numbers, one can write a proof that applies to anything satisfying the Peano axioms. But that makes proofs more difficult as they cannot reap the benefits of any particular representation.~\cite{transferAlongIso}
+An easy way to make a proof that applies to all representations of an object is to write a proof that applies to anything with certain properties. For example, instead of relying on a particular representation of natural numbers, one can write a proof that applies to anything satisfying the Peano axioms~\cite{transferAlongIso}. But that makes proofs more difficult as they cannot reap the benefits of any particular representation.
 
-An important motivation for transporting proofs between representations is \emph{refinement}, replacement of data structures with more efficient ones.~\cite{refinementsFF} In fact, the development discussed in this work would be far more useful were the data structures refined to to ones that are of practical use. This is elaborated on in Section~\ref{badds}.
+An important motivation for transporting proofs between representations is \emph{refinement}, replacement of data structures with more efficient ones~\cite{refinementsFF}. In fact, the development discussed in this work would be far more useful were the data structures refined to to ones that are of practical use. This is elaborated on in Section~\ref{badds}.
 
-Unlike other attempts, Univalent foundations~\cite{hottbook} support transporting any function over equivalences. However, it is fundamentally different from the Calculus of Inductive Constructions, the underlying logic of Coq, which is the Coq implementation involves a Univalence axiom. As axioms in Coq have no computational meaning, transported functions cannot be executed, which is not a problem for proof but renders transported executable code useless. There are newer type systems, for instance Cubical type theory~\cite{cubicalTT}, which assign computational meaning to univalence. Equivalences for Free~\cite{equivalencesFF} describes an approach that manages to transport most useful constructs while remaining in Coq.
+Unlike other attempts, Univalent foundations~\cite{hottbook} support transporting any function over equivalences. However, it is fundamentally different from the Calculus of Inductive Constructions, the underlying logic of Coq, which is why the Coq implementation involves a Univalence axiom. As axioms in Coq have no computational meaning, transported functions cannot be executed, which is not a problem for proof but renders transported executable code useless. There are newer type systems, for instance Cubical type theory~\cite{cubicalTT}, which assign computational meaning to univalence. Equivalences for Free~\cite{equivalencesFF} describes an approach that manages to transport most useful constructs while remaining in Coq.
 
 \subsubsection{Tactics languages}
 
@@ -198,7 +202,7 @@ Tactics languages are designed very differently from specification languages, as
 
 \subsubsection{Reflection}
 
-Procedures like solving linear programming problems can be directly incorporated into proofs but compared to a function implementing the procedure, they perform poorly and produce large proofs that consume a lot of memory. Instead, one can implement the procedure, prove it correct and use it in a proof.~\cite{CPDT}
+Procedures like solving linear programming problems can be directly incorporated into proofs but compared to a function implementing the procedure, they perform poorly and produce large proofs that consume a lot of memory. Instead, one can implement the procedure, prove it correct and use it in a proof~\cite{CPDT}.
 
 Reflection is the process of converting a Coq term to a representation that can be manipulated in Coq itself and back. Certified Programming with Dependent Types~\cite{CPDT} automates this with tactics but Coq's canonical structures can also be used effectively for that task~\cite{overloadingCanonical} as outlined next.
 
@@ -208,11 +212,10 @@ Haskell type classes and Rust traits are an example of code generation in mainst
 
 Canonical structures fullfill a similar purpose to type classes in Coq. A notable difference is that canonical instances are selected via unification. Gonthier et al.~\cite{overloadingCanonical} exploit the fact that Coq only unfolds terms when unification fails to automatically try multiple instances in sequence. By writing instances akin to a logic program, one can automate things like ordering terms correctly in order to apply a lemma.
 
-I don't use this kind of automation in my code, as I only learned about it afterward, but it seems highly useful. Reordering things is easy but code that has to explicitly state the desired order of terms before applying a lemma is tedious and breaks when the reordered expression changes.
+I do not use this kind of automation in my code, as I only learned about it afterward, but it seems highly useful. Reordering things is easy but code that has to explicitly state the desired order of terms before applying a lemma is tedious and breaks when the reordered expression changes.
 
-\clearpage % otherwise the figures in the next section don't behave
-
-\section{Locally Checkable Labeling}\label{lclsection}
+\clearpage
+\section{Locally checkable labeling}\label{lclsection}
 
 Locally checkable labeling (LCL) is a family of graph problems in which one has to assign colors to edges or vertices, satisfying some locally checkable condition.~\cite{LCL}
 
@@ -287,7 +290,7 @@ I will use \emph{sinkless orientation} as a running example. It is the problem o
 \caption{An undirected and the unique solution to sinkless orientation in it.}
 \end{figure}
 
-\subsection{Round Elimination problems}
+\subsection{Round elimination problems}
 
 \emph{Biregular trees} are trees that have properly two-colored vertices and where the degree of each class of vertices is constant. Round elimination operates on edge coloring LCL-problems in biregular trees that can be checked by only checking the nearest edges' colors. I call this kind of problem a \emph{round elimination problem} or RE problem.
 
@@ -301,7 +304,7 @@ An RE problem can be represented as sets $A$ and $P$. The symbols in the configu
 
 \subsection{Conversion from LCL}
 
-I will now show how to convert sinkless orientation to an RE problem. The RE problem operates on a tree where the degree of active nodes corresponds to the original graph's degree and the degree of passive nodes is two. Each vertex in the original graph corresponds to an active vertex in the RE graph. Edges correspond to passive vertices. We can describe the directions of edges by coloring the RE graph's edges with I (for incoming) and O (for outgoing).
+I will now show how to convert sinkless orientation to an RE problem. The RE problem operates on a tree where the degree of active nodes corresponds to the original graph's degree and the degree of passive nodes is two. Each vertex in the original graph corresponds to an active vertex in the RE graph. Edges correspond to passive vertices.
 
 \begin{figure}[h]
 \centering
@@ -332,29 +335,25 @@ I will now show how to convert sinkless orientation to an RE problem. The RE pro
   \draw [dashed, stealth-stealth, shorten <=0.6ex, shorten >=0.5ex] (tail) to[bend left=10] (CtoP);
   \draw [dashed, stealth-stealth, shorten <=0.5ex, shorten >=0.5ex] (head) to[bend left=10] (PtoA);
 \end{tikzpicture}
-\caption{Correspondence between solutions in round elimination graph and original graph}
+\caption{Correspondence between solutions in round elimination graph and original graph.}
 \end{figure}
 
-The active side's rule $A$ lists all the valid neighborhoods. The passive side's rule $P$ ensures that each edge is incoming on one end and outgoing on the other; otherwise there could be edges with an arrowhead on both sides.
-\begin{align*}
-\Sigma &= \{I, O\} \\
-A &= \{[I, I, O], [I, O, O], [O, O, O]\} \\
-P &= \{[I, O]\}
-\end{align*}
+We can describe the directions of edges by coloring the RE graph's edges with I (for incoming) and O (for outgoing), so the alphabet $\Sigma$ is $\{I, O\}$. The active side's rule $A = \{[I, I, O], [I, O, O], [O, O, O]\}$ lists all the valid neighborhoods. The passive side's rule $P = \{[I, O]\}$ ensures that each edge is incoming on one end and outgoing on the other; otherwise there could be edges with an arrowhead on both sides.
 
 The cases of sinkless orientation that deal with nodes of lower degree can be disregarded, since the active nodes in the biregular tree all have the same degree. The RE problem only models sinkless orientation on regular trees.
 
 Real-world graphs are not regular trees, since graphs without any vertices of degree one are infinite. But proofs about regular trees are still useful: if something is impossible on a regular tree, it is impossible on graphs. Some interesting graphs are almost regular trees, one just has to handle the edge cases.
 
-The same kind of conversion as done here to sinkless orientation be applied to any locally checkable problem on regular trees. It isn't always as straightforward, especially if the LCL problem looks at a big neighborhood but it is possible.
+The same kind of conversion as done here to sinkless orientation be applied to any locally checkable problem on regular trees. It is not always as straightforward, especially if the LCL problem looks at a big neighborhood but it is possible.
 
-For example, distance-2 vertex coloring is quite verbose. In it, neighboring vertices have to have different colors and vertices at distance two have to have different colors. It can be encoded as follows for degree two graphs.
+For example, distance-2 vertex coloring is quite verbose. In it, neighboring vertices have to have different colors and vertices at distance two have to have different colors. It can be encoded as follows for degree two graphs:
 \begin{align*}
-A &= \{[(c_0, c_1, c_2), (c_0, c_2, c_1)] \mid \text{for all distinct } c_0, c_1\text{ and }c_2 \} \\
-P &= \{[(c_1, c_2, c_3), (c_2, c_1, c_4)] \mid \text{for all distinct } c_1, c_2, c_3\text{ and }c_4 \}
+A &= \{[(c_0, c_1, c_2), (c_0, c_2, c_1)] \mid \text{for all distinct } c_0, c_1\text{ and }c_2 \}, \\
+P &= \{[(c_1, c_2, c_3), (c_2, c_1, c_4)] \mid \text{for all distinct } c_1, c_2, c_3\text{ and }c_4 \}.
 \end{align*}
 Just like in sinkless orientation, the edges become passive nodes. The first value of each triplet is the color of the nearest node, the second one is the color of the neighbor the edge is going towards and the third value is the color of the other neighbor.
 
+\clearpage
 \section{Round Elimination}\label{resection}
 
 Brandt et al.~\cite{speedup} introduced round elimination in 2019. It is a procedure that takes a round elimination problem $\Pi_0$ and outputs a new problem $\Pi_1$. It has interpretations in various models of distributed computing. As the name suggests, $\Pi_1$ can generally be solved one round faster than $\Pi_0$.
@@ -365,16 +364,18 @@ While $\Pi_0$ assigns a color to each edge, $\Pi_1$ assigns a set of colors to e
 
 Dennis Olivetti~\cite{RE} wrote an implementation of round elimination called Round Eliminator. Round elimination has been used to prove bounds on time complexity for various problems in the LOCAL model~\cite{tc1, tc2, tc3}.
 
-In Round Eliminator, problems are represented as \emph{lines}. Lines are a kind of shorthand notation that compresses multiple configurations into one line. Each line is a multiset of sets and represents or \emph{generates} all the configurations obtained by choosing one color from each set.~\cite{RE}
+In Round Eliminator, problems are represented as \emph{lines}. Lines are a kind of shorthand notation that compresses multiple configurations into one line. Each line is a multiset of sets and represents or \emph{generates} all the configurations obtained by choosing one color from each set~\cite{RE}.
 
-For example, the line \reline{IO IO O} generates the configurations $[I, O, O]$, $[I, I, O]$ and $[O, O, O]$. ($[O, I, O]$ is the same as $[I, O, O]$, since lines and configurations are unordered.)
+For example, the line $[\{I,O\},\{I,O\},\{O\}]$ generates the configurations $[I, O, O]$, $[I, I, O]$ and $[O, O, O]$. ($[O, I, O]$ is the same as $[I, O, O]$, since lines and configurations are unordered.)
+
+To improve readability, all lines in this thesis are written in bold and with whitespace instead of punctuation, for instance the aforementioned line is \reline{IO IO O}.
 
 \begin{figure}[h]
   \centering
-  \begin{tcolorbox}[width=.22\textwidth, nobeforeafter, title=active side]
+  \begin{tcolorbox}[width=.22\textwidth, nobeforeafter, title={active side}]
   IO IO O
   \end{tcolorbox}
-  \begin{tcolorbox}[width=.22\textwidth, nobeforeafter, title=passive side]
+  \begin{tcolorbox}[width=.22\textwidth, nobeforeafter, title={passive side}]
   I O
   \end{tcolorbox}
   \caption{Sinkless orientation in Round Eliminator's shorthand}
@@ -384,20 +385,20 @@ For example, the line \reline{IO IO O} generates the configurations $[I, O, O]$,
 
 Let $\Pi_n$'s alphabet, active side and passive side be $\Sigma_n$, $A_n$ and $P_{n}$ respectively. Let $\text{cfgs}$ be a function from a line to all the configurations it generates.
 
-Note that the configurations of $\Pi_1$ have the exact same shape as lines of $\Pi_0$: multisets of nonempty subsets of $\Sigma_0$. This is why configurations of $\Pi_1$ generate configurations in the below definitition.
-
-The definition of RE from Distributed Algorithms 2020~\cite{DA2020} rephrased in terms of lines:
+Rephrased in terms of lines, the definition of RE from Distributed Algorithms 2020~\cite{DA2020} reads:
 \begin{itemize}
-  \item $\Sigma_1$ is the powerset of $\Sigma_0$ minus the empty set.
-  \item $A_{1} = \{x \mid \forall c : \text{cfgs}(x),\ c \in P_0 \}$
-  \item $P_1 = \{x \mid \exists c : \text{cfgs}(x),\ c \in A_0 \}$
+  \item $\Sigma_1$ is the powerset of $\Sigma_0$ minus the empty set,
+  \item $A_{1} = \{x \mid \forall c : \text{cfgs}(x),\ c \in P_0 \}$,
+  \item $P_1 = \{x \mid \exists c : \text{cfgs}(x),\ c \in A_0 \}$.
 \end{itemize}
 
 In words: $A_{1}$ consists of all lines that only generate configurations present in $P_{0}$. $P_1$ consists of all lines that generate at least one configuration from $A_0$.
 
+In the above equations $A_1$ and $P_1$ are defined as sets of configurations. It is strange to see $\text{cfgs}(x)$; the set of configurations generated by a configuration. That works because the configurations of $\Pi_1$ have the exact same shape as lines of $\Pi_0$: multisets of nonempty subsets of $\Sigma_0$.
+
 \subsection{Interpretation in the port numbering model}
 
-In this section I'll show that round elimination produces a problem that can be solved exactly one round faster than its predecessor in the port numbering model. The port numbering model is the weakest of a number of of models of distributed computing. But round elimination has been shown to work in stronger models, like the LOCAL model as well.~\cite{tc3}
+In this section I will show that round elimination produces a problem that can be solved exactly one round faster than its predecessor in the port numbering model. The port numbering model is the weakest of a number of models of distributed computing. But round elimination has been shown to work in stronger models, like the LOCAL model as well~\cite{tc3}.
 
 \subsubsection{The port numbering model}
 
@@ -436,7 +437,7 @@ Here $r$-neighborhood refers to the subgraph containing vertices and edges at mo
 \begin{proof}
   The $r$-neighborhood is sufficiently large, as information from further away cannot be seen in $r$ rounds.
 
-  Every vertex can gather its $r$-neighborhood in $r$ rounds, so it isn't too much information either. The gathering process works as follows: Every round, every node sends through each of its ports the number of the port, its number of neighbors and the messages it received in the previous round along with any data it was initialized with.
+  Every vertex can gather its $r$-neighborhood in $r$ rounds, so there is not too much information either. The gathering process works as follows: Every round, every node sends through each of its ports the number of the port, its number of neighbors and the messages it received in the previous round along with any data it was initialized with.
 
   After round $r$, all vertices can reconstruct their $r$-neighborhood. The structure of nested messages exactly mirrors the structure of the graph.
 
@@ -449,7 +450,7 @@ In the LOCAL model this lemma holds for general graphs because the LOCAL model a
 
 Suppose there is an algorithm $G_0$ that solves the round elimination problem $\Pi_0$ in $r$ rounds, where $r > 0$. Let us construct an algorithm $G_1$ that operates on the same graph but the active nodes are passive and vice versa. Also suppose that $G_1$ finishes in $r-1$ rounds, so it makes a decision based on an $r-1$ neighborhood.
 
-Suppose that $G_1$ is run on some vertex $v$. For each neighboring vertex $n$, $G_1$ computes all possible $r$-neighborhoods centered around $n$. $G_1$ then runs $G_0$ on each of the neighborhoods, noting the color $G_0$ assigns to the edge $\{v, n\}$. $G_1$ assigns the union of all those colors to $\{v, n\}$.
+Suppose that $G_1$ is run on some vertex $v$. For each neighboring vertex $n$, $G_1$ computes all possible $r$-neighborhoods centered around $n$. Then $G_1$ runs $G_0$ on each of the neighborhoods, noting the color $G_0$ assigns to the edge $\{v, n\}$. $G_1$ assigns the union of all those colors to $\{v, n\}$.
 
 \begin{lemma}
   $G_1$ solves $\Pi_1$, the result of running round elimination on $\Pi_0$, provided that disjoint parts of the graph are independent.
@@ -468,7 +469,7 @@ Moving to the LOCAL model violates the independency requirement, as two blind sp
   $\Pi_1$ can be solved at least one round faster than $\Pi_0$.
 \end{lemma}
 \begin{proof}
-  Suppose that $G_0$ is the fastest possible algorithm that solves $\Pi_0$. $G_1$ solves $\Pi_1$ one round faster than that.
+  Suppose that $G_0$ is the fastest possible algorithm that solves $\Pi_0$. By definition, $G_1$ solves $\Pi_1$ one round faster than $G_0$.
 \end{proof}
 
 \begin{lemma}
@@ -480,15 +481,15 @@ Moving to the LOCAL model violates the independency requirement, as two blind sp
   But we assumed that the fastest algorithm solves $\Pi_0$ in $r$ rounds, so the assumption that $\Pi_1$ can be solved in less than $r-1$ rounds must be false.
 \end{proof}
 
-I have shown that $\Pi_1$ can be solved at least one round faster and at most one round faster than $\Pi_0$. It follows that it can be solved exactly one round faster than $\Pi_0$.
+We have seen that $\Pi_1$ can be solved at least one round faster and at most one round faster than $\Pi_0$. It follows that it can be solved exactly one round faster than $\Pi_0$.
 
 \subsection{Optimizing output size}
 
-Round elimination produces a gigantic number of configurations. Especially the new passive side contains almost every possible configuration. For example, suppose $\Sigma_{0} = {a, b, c}$ and $A_0$ has a configuration $[a, b]$. Now $P_{1}$ contains \reline{a~b} but also \reline{ab~b}, \reline{ac~b}, \reline{abc~b}, \reline{a~ab}, \reline{a~bc}, \reline{a~abc}, \reline{ab~ab}, \reline{ab~bc}, \reline{ab~abc}, \reline{ac~ab}, \reline{ac~bc}, \reline{ac~abc}, \reline{abc~ab}, \reline{abc~bc} and \reline{abc~abc}. If we were to use this directly, the problem size would grow at an alarming rate with successive applications of round elimination, so it makes sense to optimize output size over round elimination speed.
+Round elimination produces a gigantic number of configurations. Especially the new passive side contains almost every possible configuration. For example, suppose $\Sigma_{0} = \{a, b, c\}$ and $A_0$ has a configuration $[a, b]$. Now $P_{1}$ contains \reline{a~b} but also \reline{ab~b}, \reline{ac~b}, \reline{abc~b}, \reline{a~ab}, \reline{a~bc}, \reline{a~abc}, \reline{ab~ab}, \reline{ab~bc}, \reline{ab~abc}, \reline{ac~ab}, \reline{ac~bc}, \reline{ac~abc}, \reline{abc~ab}, \reline{abc~bc} and \reline{abc~abc}. If we were to use this directly, the problem size would grow at an alarming rate with successive applications of round elimination, so it makes sense to optimize output size over round elimination speed.
 
-One simple optimization is to discard all active configurations containing symbols that don't appear in any passive configurations and vice versa, as using them is impossible. But even more can be discarded.
+One simple optimization is to discard all active configurations containing symbols that do not appear in any passive configurations and vice versa, as using them is impossible. But even more can be discarded.
 
-As mentioned earlier, the lines of $\Pi_0$ are just like the configurations of $\Pi_1$. (Which is why I am using line notation to write the latter as well.) In terms of lines, $A_1$ is the set of all \emph{valid} lines wrt. $P_0$, where valid lines are lines that only generate configurations that are in $P_0$.
+As mentioned earlier, the lines of $\Pi_0$ are just like the configurations of $\Pi_1$. (Which is why I am using line notation to write the latter as well.) In terms of lines, $A_1$ is the set of all \emph{valid} lines w.r.t. $P_0$, where valid lines are lines that only generate configurations that are in $P_0$.
 
 I will now show that using only some valid lines as $A_1$ instead of all valid lines creates a problem has strictly less solutions than $\Pi_1$ but is exactly as hard.
 
@@ -503,7 +504,7 @@ Suppose the picture below is part of a solution to $\Pi_{1}$. One can see that \
   \draw [thick] (2,0) node[passive]{} -- (3, 0) node[active]{} node[midway, above]{\{a, f\}};
 \end{tikzpicture}
 
-If \reline{x~ac} is in $A_{1}$, there is also a solution where node $n$ chooses it instead of \reline{x~a}, provided that \reline{ac~af} is in $P_{1}$. \reline{a~af} is in $P_{1}$, so it generates some configuration from $A_{0}$. \reline{ac~af} generates strictly more configurations, so it is in $P_{1}$, too.
+\noindent If \reline{x~ac} is in $A_{1}$, there is also a solution where node $n$ chooses it instead of \reline{x~a}, provided that \reline{ac~af} is in $P_{1}$. As \reline{a~af} is in $P_{1}$, it generates some configuration from $A_{0}$. Because \reline{ac~af} generates strictly more configurations it is in $P_{1}$, too.
 
 \begin{tikzpicture}[scale=2]
   \draw [thick, dashed] (0.3,0) -- (1,0) node[midway, above]{\{x\}};
@@ -512,9 +513,9 @@ If \reline{x~ac} is in $A_{1}$, there is also a solution where node $n$ chooses 
   \draw [thick] (2,0) node[passive]{} -- (3, 0) node[active]{} node[midway, above]{\{a, f\}};
 \end{tikzpicture}
 
-As every solution using \reline{x~a} can use \reline{x~ac} instead, \reline{x~a} can be omitted.
+\noindent As every solution using \reline{x~a} can use \reline{x~ac} instead, \reline{x~a} can be omitted.
 
-Any configuration $C$ in $A_1$ can be omitted if there is a $B$ in $A_1$ that can be paired up with $C$ so that for each pair $(c, b)$ where $c \in C$ and $b \in B$ it holds that $c \subseteq b$.~\cite{DA2020} For any $C$ and $B$ satisfying that criterion I say that $B$ \emph{dominates} $C$ and $C$ \emph{is dominated by} $B$.
+Any configuration $C$ in $A_1$ can be omitted if there is a $B$ in $A_1$ that can be paired up with $C$ so that for each pair $(c, b)$ where $c \in C$ and $b \in B$ it holds that $c \subseteq b$~\cite{DA2020}. For any $C$ and $B$ satisfying that criterion I say that $B$ \emph{dominates} $C$ and $C$ \emph{is dominated by} $B$.
 
 \tikzset{
   EdgeStyle/.append style = {->}
@@ -543,11 +544,11 @@ Any configuration $C$ in $A_1$ can be omitted if there is a $B$ in $A_1$ that ca
   \caption{Graph of lines strictly dominated by \reline{a~abc}.}
 \end{figure}
 
-Note that domination is not the same relation as the subset relation of generated configurations. \reline{a abc ade} generates $[a, b, e]$, while \reline{a a bcde} only generates configurations that are in the former. Yet they are incomparable in terms of domination.
+Note that domination is not the same relation as the subset relation of generated configurations. The line \reline{a abc ade} generates $[a, b, e]$, while \reline{a a bcde} only generates configurations that are in the former. Yet they are incomparable in terms of domination.
 
 \subsubsection{Maximal form}
 
-We don't need to include dominated lines in $A_1$, as a good algorithm solving $\Pi_1$ would never choose them, as the more dominant lines are always a better choice.
+We do not need to include dominated lines in $A_1$, as a good algorithm solving $\Pi_1$ would never choose them, as the more dominant lines are always a better choice.
 
 Thus the only lines needed in $A_1$ (the \emph{maximal form} of $P_0$) are the valid lines that no valid line strictly dominates. In other words, the \emph{maximal form} of $S$ is the Pareto front of \emph{valid} lines with respect to domination.
 
@@ -587,14 +588,14 @@ The new passive side is built by replacing every set in the lines representing $
 
 Finally, to make the representation more compact, $\Sigma_1$ is converted from subsets of $\Sigma_0$ to ordinals simply by enumerating the colors.
 
-
+\clearpage
 \section{Maximization via line combination}\label{nlproof}
 
 In this section I will present a maximization algorithm based on combining lines and prove its correctness. The lemmas closely follow ones I have proved in Coq. The details only relevant to the proof in Coq are discussed in Section~\ref{mechproof}.
 
 \subsection{Combining lines}
 
-The new maximization algorithm mostly consists of combining lines. Two lines can be \emph{combined} by pairing up their sets and taking the union of one pair and the intersection of the rest.
+The new maximization algorithm mostly consists of combining lines. Two lines can be \emph{combined} by pairing up their sets and taking the union of one pair and the intersection of the rest as illustrated in Figure~\ref{combinationExample}.
 
 \begin{figure}[h]
 \begin{align*}
@@ -602,7 +603,8 @@ The new maximization algorithm mostly consists of combining lines. Two lines can
   \{I,O\} &\cap \{I,O\} = \{I, O\} \\
   \{O\} &\cap \{I, O\} = \{O\}
 \end{align*}
-\caption{one possible way to combine \reline{IO IO O} with itself}
+\caption{one possible way to combine \reline{IO IO O} with itself.}
+\label{combinationExample}
 \end{figure}
 
 \begin{theorem}[Combination is sound]
@@ -647,7 +649,7 @@ For any non-singleton line $x$ there exist two lines strictly dominated by $x$ t
 \end{lemma}
 
 \begin{proof}
-Since $x$ is not a singleton line, one of its sets, $S = \{a, b, \dots\}$, must contain multiple elements. Make two lines: one where $S$ is replaced with $S \smallsetminus a$ and another where $S$ is replaced with $S \smallsetminus b$. $(S \smallsetminus a) \cup (S \smallsetminus b) = S$, so $x$ can be built out of them and $x$ strictly dominates them, as they have strictly less symbols in them.
+Since $x$ is not a singleton line, one of its sets, $S = \{a, b, \dots\}$, must contain multiple elements. Make two lines: one where $S$ is replaced with $S \smallsetminus a$ and another where $S$ is replaced with $S \smallsetminus b$. Their union is $S$, so $x$ can be built out of them and $x$ strictly dominates them, as they contain strictly less symbols.
 \end{proof}
 
 \begin{theorem}\label{explode}
@@ -716,22 +718,26 @@ If one (or both) of the lines are missing, recurse into the missing line. There 
 
 Theorem~\ref{justtwo} gives an efficient process for checking maximality: if all ways of combining two lines result in lines dominated by some existing line, then the current set of lines is maximal.
 
-A trivial extension yields an algorithm for finding the maximal form: The input lines start in a todo set and there is an empty done set. As long as there are lines in the todo set, take one of them. If it is dominated by some other line in either set, discard it. Otherwise insert it into the done set and insert all combinations of it and lines in the done set into the todo set.
+A trivial extension yields an algorithm for finding the maximal form: when a line that is not dominated by any existing line is found, add it to the set of lines and try combining it with all the other lines. This process is bound to terminate, as strict domination is a well-founded relation. When it does, filter out all dominated lines and only the maximal lines are left.
 
+Before explaining the proof in Coq, I will explain the theoretical underpinnings of it and other type theory based proof systems.
 
+\clearpage
 \section{Type theory as mathematical foundation}\label{dependent}
 
 The Curry-Howard correspondence states that a program is a proof of a theorem corresponding to its type. Thanks to this idea, we can use a model of computation as the foundations of mathematics instead of the conventional Zermelo-Fraenkel set theory axioms.
 
+The book Homotopy Type Theory~\cite{hottbook} covers most of the information in this section among other things.
+
 \subsection{How to prove with code}
 
-The notation $e : T$ is read as expression $e$ has type $T$. This is analogous to set membership in set theory if $T$ is seen as the set of all values that $e$ could have. Types are not sets and don't always behave in the same way but some operations look very similar for both. Notably, types don't support union and intersection like sets do.
+The notation $e : T$ is read as expression $e$ has type $T$. This is analogous to set membership in set theory if $T$ is seen as the set of all values that $e$ could have. Types are not sets and do not always behave in the same way but some operations look very similar for both. Notably, types don't support union and intersection like sets do.
 
 Types that are checked at runtime, found for example in Python are not the same thing. In Python, the same expression can have a different type on different runs. I am only talking about statically typed languages, so every expression has just one type, which can be computed without running the program.
 
 Constructing a value of type $T$ proves that something of type $T$ exists. However, in most programming languages it is possible to write a function that does not construct a value of type $T$ even though that is its return type. Apart from broken type systems, this happens because the languages allow programs to crash or loop. Section~\ref{totality} explains how Coq prevents that.
 
-We can now prove that integers exist by writing $1: Integer$, which isn't very exciting. We can also encode propositional logic (see Listing~\ref{rustlog}) and integers. Some programming languages' type system is even Turing-complete but as far as I know, no type system is seriously used as a programming language. It would be much more useful to write theorems about the outputs of functions instead of some ugly type-level constructs. This is where dependent types come in.
+We can now prove that integers exist by writing $1: Integer$, which is not very exciting. We can also encode propositional logic (see Listing~\ref{rustlog}) and integers. Some programming languages' type system is even Turing-complete but as far as I know, no type system is seriously used as a programming language. It would be much more useful to write theorems about the outputs of functions instead of some ugly type-level constructs. This is where dependent types come in.
 
 \begin{listing}[h]
   \begin{minted}{Rust}
@@ -740,27 +746,27 @@ We can now prove that integers exist by writing $1: Integer$, which isn't very e
   let not_a: &dyn Fn(A) -> Void;
   enum Void {}
   \end{minted}
-  \caption{propositional logic in Rust types}
+  \caption{Propositional logic in Rust types. Initializing these variables in safe Rust would prove what the name implies if Rust was total (see Section~\ref{totality}).}
   \label{rustlog}
 \end{listing}
 
 A dependently typed programming language can express types that depend on values as opposed to simply typed languages, where types and values are entirely separate. For example, with dependent types, one is able to write a type $1 + 1 = 2$ where $1$, $2$ and $+$ are the same constructs that one would use in a program that performs calculations. Even quantifiers are implemented with dependent types in Coq.
 
-Before going into dependent types it more detail, I'll briefly discuss the algebraic notation that is often used when discussing types.
+Before going into dependent types it more detail, I will briefly discuss the algebraic notation that is often used when discussing types.
 
 \subsection{Type algebra}
 
 The unit type $1$ is a type with only one inhabitant, commonly denoted as the empty tuple $()$. The type $0$ is a type that no value has. It should not be confused with \textbf{void} in C, which is actually $1$. If a function's return type is $0$, the function must never return, as it is impossible to construct a value of type $0$.
 
-Values of a product type $A \times B$ consist of an $a : A$ followed by a $b : B$. The cartesian product is the corresponding set operation. Many programming languages have a tuple type, which is a pure product type. Record or struct types are common named variants of product types. In most cases, they could be replaced with tuples; the names are only for making them more readable.
+Values of a product type $A \times B$ consist of an $a : A$ followed by a $b : B$. The Cartesian product is the corresponding set operation. Many programming languages have a tuple type, which is a pure product type. Record or struct types are common named variants of product types. In most cases, they could be replaced with tuples; the names are only for making them more readable.
 
-Values of a sum type $A + B$ are either of type $A$ or of type $B$. The corresponding set operation is the disjoint union. A disjoint union is a union where the elements are augmented with an index indicating the set from which set they originate. In programming, this is known as tagged union. Enumerations are the simplest example; booleans could be written $1 + 1$, though it is more concise to call them $2$. A tagged union with zero variants cannot be constructed so it is $0$. Optionals found in Rust or Scala among others, are of the form $T + 1$. Structurally typed unions, an intermediate between C's wildly unsafe unions and tagged unions is found in gradually typed languages like TypeScript and in the joke language IntercalScript~\cite{ICS}.
+Values of a sum type $A + B$ are either of type $A$ or of type $B$. The corresponding set operation is the disjoint union. A disjoint union is a union where the elements are augmented with an index indicating the set from which set they originate. In programming, this is known as tagged union. Enumerations are the simplest example; Booleans could be written $1 + 1$, though it is more concise to call them $2$. A tagged union with zero variants cannot be constructed so it is $0$. Optionals found in Rust or Scala among others, are of the form $T + 1$. Structurally typed unions, an intermediate between C's wildly unsafe unions and tagged unions is found in gradually typed languages like TypeScript and in the joke language IntercalScript~\cite{ICS}.
 
-Knowing this much type algebra is sufficient to understand why the dependent types presented next are called $\Pi$ and $\Sigma$-types but I'll go on to show that types equipped with the previously defined sum and product form a semiring just to highlight that there truly is an algebra of types.
+Knowing this much type algebra is sufficient to understand why the dependent types presented next are called $\Pi$ and $\Sigma$-types but I will go on to show that types equipped with the previously defined sum and product form a semiring just to highlight that there truly is an algebra of types.
 
 \subsubsection{Aside: More type algebra}
 
-I have many times found myself wondering if I should write a data structure $A \times (B + C)$ or $(A \times B) + (A \times C)$ when it isn't entirely clear if $A$ really represents the same thing in both cases. I am not aware of any programming language where such \emph{isomorphic types} can be used interchangeably. Incidentally, in Coq $((1, 2), 3)$ is equal to $(1, 2, 3)$ but $(1, (2, 3))$ has a different type.
+I have many times found myself wondering if I should write a data structure $A \times (B + C)$ or $(A \times B) + (A \times C)$ when it is not entirely clear if $A$ really represents the same thing in both cases. I am not aware of any programming language where such \emph{isomorphic types} can be used interchangeably. Incidentally, in Coq $((1, 2), 3)$ is equal to $(1, 2, 3)$ but $(1, (2, 3))$ has a different type.
 
 \begin{theorem}
   The operations $+$ and $\times$ form a semiring on the isomorphism classes of types.
@@ -788,7 +794,7 @@ Inductive types have interesting equations, for example
 \end{align*}
 is a solution to
 \begin{align*}
-  \text{List} &= (A \times \text{List}) + 1
+  \text{List} &= (A \times \text{List}) + 1,
 \end{align*}
 which is the typical definition of a list in functional programming languages. Conor McBride~\cite{typeDerivative} has even shown that the partial derivative of a type is a data structure representing an in-progress traversal of it.
 
@@ -835,17 +841,17 @@ Viewed as a proposition, $\Sigma_{x:T}~P(x)$ corresponds to $\exists x : P(x)$.
 
 \subsubsection{Other exotic types}
 
-$\Sigma$ and $\Pi$-types are not the only kinds of new types that can exist in dependent type theories.~\cite{hofmann1997syntax} For instance Rathjen~\cite{griffor1994strength} has shown that extending Martin-Löf type theory with well-founded tree types makes it a significantly stronger proof system.
+Sigma- and $\Pi$-types are not the only kinds of new types that can exist in dependent type theories~\cite{hofmann1997syntax}. For instance Rathjen~\cite{griffor1994strength} has shown that extending Martin-Löf type theory with well-founded tree types makes it a significantly stronger proof system.
 
 Coq's \icoq{Inductive} definitions can be used to define many kinds of dependent types but not all of them; for example higher inductive types are not supported.
 
 \subsection{Universes}
 
-A universe hierarchy is a feature of many dependently typed languages that the user mostly doesn't encounter but that is required for consistency as a proof system. It prevents making a paradoxical type $P$ such that $P: P$. In a language with polymorphism, such a type can be used to prove anything via Girard's paradox.
+A universe hierarchy is a feature of many dependently typed languages that the user mostly does not encounter but that is required for consistency as a proof system. It prevents making a paradoxical type $P$ such that $P: P$. In a language with polymorphism, such a type can be used to prove anything via Girard's paradox.
 
-In Coq, the type of a simple type is Set, the type of set is Type0, the type of Type0 is Type1 and the type of that is Type2 etc. Types have subtyping: any type may be used as if its universe index was greater.~\cite{CPDT}
+In Coq, the type of a simple type is Set, the type of set is Type0, the type of Type0 is Type1 and the type of that is Type2 etc. Types have subtyping: any type may be used as if its universe index was greater~\cite{CPDT}.
 
-Impredicativity tends to cause inconsistency in logical systems. Coquand~\cite{newParadox} reports on one such paradox he has discovered. The universe hierarchy forces predicativity, meaning that an object can't take itself as an argument. Such an object would have to have to live in a universe $U$ such that $U < U$.
+Impredicativity tends to cause inconsistency in logical systems. Coquand~\cite{newParadox} reports on one such paradox he has discovered. The universe hierarchy forces predicativity, meaning that an object can not take itself as an argument. Such an object would have to have to live in a universe $U$ such that $U < U$.
 
 Certified Programming with Dependent Types~\cite{CPDT} gives an example of a universe error (shown below) but it has to be slightly modified, as it compiles and runs without errors on Coq 8.15.
 \begin{minted}{Coq}
@@ -858,19 +864,33 @@ To get the error that the example tries to produce, we need to disallow inferrin
 \begin{minted}{Coq}
 Check id (@id).
 \end{minted}
-produces the expected error.
+produces the expected error:
 \begin{verbatim}
 The term "@id" has type "forall T : Type, T -> T"
 while it is expected to have type "?T"
 (unable to find a well-typed instantiation for "?T":
-cannot ensure that "Type@{id.u0+1}" is a subtype of "Type@{id.u0}").
+cannot ensure that
+"Type@{id.u0+1}" is a subtype of "Type@{id.u0}").
 \end{verbatim}
 
 Especially with the improvements in inference, typical users rarely encounter universes. There is already experimental support for universe polymorphism~\cite{coqRefman} which completely eliminates the problem in the above example by allowing use of the same definition with different universe levels.
 
+\clearpage
 \section{Mechanized proof}\label{mechproof}
 
-I have formalized the proof presented in Section~\ref{nlproof}, written an implementation of maximality checking in Coq and proved that implementation's correctness. The proofs involve many boring details, which this thesis does not cover. However, I will show examples of the most important techniques used.
+I have formalized the proof presented in Section~\ref{nlproof}, written an implementation of maximality checking in Coq (depicted in Listing~\ref{is_maximal_form}) and proved that implementation's correctness. The statement of Theorem~\ref{justtwo} in Coq is shown in Listing~\ref{combining_two_suffices}. The proof's source code~\cite{source_code} is publicly available as text and in a format suitable for reading in the browser. More on that in Section~\ref{howtoread}.
+
+\begin{listing}[h]
+  \begin{minted}{Coq}
+  Theorem combining_two_suffices (x : line):
+    missing x -> nonzero x -> valid x ->
+    ∃ a b c, a \in input ∧ b \in input ∧ combination_of a b c ∧ nonzero c ∧ missing c.
+  \end{minted}
+  \caption{The biggest theorem in the Coq proof that shows that one can find missing lines by combining two lines.}
+  \label{combining_two_suffices}
+\end{listing}
+
+This section is written for a reader that has some familiarity with statically typed functional programming but has not used Coq. I would encourage readers that have already written some mechanized proofs of their own to study the proof's source code along with the natural language proof (Section~\ref{nlproof}) that closely follows it.
 
 \begin{listing}[h]
 \begin{minted}{Coq}
@@ -883,33 +903,29 @@ Definition none_dominated :=
 
 Definition is_maximal_form :=
   cannot_find_more && none_dominated.
+
+Theorem is_maximal_form_works :
+  is_maximal_form <->
+  (∀ x : line, nonzero x ->
+    [exists y in input, perm_eq x y] <-> maximal x).
 \end{minted}
-\caption{The definition of the verified maximality checking function.}
+\caption{The definition of the verified maximality checking function and the theorem that states that \icoq{is_maximal_form} returns true only iff the input consists of the maximal lines. That is, every line in the input is maximal and every maximal line is in the input.}
 \label{is_maximal_form}
 \end{listing}
 
-This section is written for a reader that has some familiarity with statically typed functional programming but hasn't used Coq. I would encourage readers that have already written some mechanized proofs of their own to study the proof's source code~\cite{source_code} along with the natural language proof (Section~\ref{nlproof}) that closely follows it.
-
-\begin{listing}[h]
-\begin{minted}{Coq}
-Theorem is_maximal_form_works :
-  is_maximal_form <->
-  (∀ x : line, nonzero x -> [exists y in input, perm_eq x y] <-> maximal x).
-\end{minted}
-\caption{The theorem that states that \icoq{is_maximal_form} returns true only iff the input consists of the maximal lines. That is, every line in the input is maximal and every maximal line is in the input.}
-\end{listing}
-
-\subsection{How to read Coq}
+\subsection{How to read Coq}\label{howtoread}
 
 Coq very closely resembles OCaml, the language it is implemented in. The main syntactic difference is that top-level definitions start with a capital keyword and end with a full stop.
 
 The majority of those statements are proofs, which may be started with \icoq{Lemma} or \icoq{Theorem}. They can be used interchangeably. I have used \icoq{Theorem} to mark the most important ones, which are also called theorems in the natural language proof (Section~\ref{nlproof}). Between the keyword and the first stop is what is to be proved. The the proof follows, terminated by \icoq{Qed} or \icoq{Defined}. Proofs terminated by the latter are allowed to be executed as programs.
 
-Printed on paper, the proofs are typically completely incomprehensible. The reason is that they manipulate the state of the proof but that state is invisible in the source code. This is the complete opposite of paper proofs, which typically report the state after every transformation rather than how they got there.
+Printed on paper, the proofs are typically completely incomprehensible. Try reading Listing~\ref{unreadable} for example. The reason is that they manipulate the state of the proof but that state is invisible in the source code. This is the complete opposite of paper proofs, which typically report the state after every transformation rather than how they got there.
 
 \begin{listing}[h]
 \begin{minted}{Coq}
-Lemma permutation_contains : ∀ a (s s' : line), perm_eq s s' -> a ∈ s = a ∈ s'.
+Lemma permutation_contains :
+  ∀ a (s s' : line), perm_eq s s' -> a ∈ s = a ∈ s'.
+Proof.
   move=> c.
   apply: perm_rew_helper => s s' pe.
   rewrite /contains/contains_unpermuted.
@@ -926,6 +942,7 @@ Lemma permutation_contains : ∀ a (s s' : line), perm_eq s s' -> a ∈ s = a �
 Qed.
 \end{minted}
 \caption{A sample proof. It should be clear what it proves but the proof itself is unreadable.}
+\label{unreadable}
 \end{listing}
 
 To allow curious readers to see everything without having to install anything, I have generated a web page \footnote{\url{https://joonazan.github.io/line-combination-proofs/}} with Alectryon~\cite{alectryon}, which allows browsing the intermediate steps.
@@ -971,13 +988,13 @@ Encoding a natural number that is at least $k$ as $n + k$ composes very well. Fo
 
 \subsection{Representation of lines}
 
+I chose to represent lines and configurations as tuples, so their lack of order is simulated by operating on some permutation instead of the actual line. This choice of representation is not ideal as discussed in Section~\ref{badds}.
+
 \begin{minted}{Coq}
 Definition nline n := n.-tuple {set color}.
 Notation "n .-line" := (nline n) (at level 30, no associativity).
 Definition line := Δ.-line.
 \end{minted}
-
-I chose to represent lines and configurations as tuples, so their lack of order is simulated by operating on some permutation instead of the actual line. This choice of representation isn't ideal as discussed in Section~\ref{badds}.
 
 Both containing a configuration and beign a combination of two lines is defined as an auxiliary procedure operating on two ordered lines and a predicate that holds if there is some permutation of the lines that satisfies the auxiliary procedure.
 
@@ -1008,7 +1025,7 @@ Because I never perform case analysis on \icoq{combination_of}, it is defined as
 
 \subsubsection{Zero lines}
 
-The paper proof never deals with lines that contain an empty set because those aren't lines. The line data structure defined here allows those invalid lines with zero configurations. Most proofs hold for them as well some of the proofs leading up to the conclusion only accept proper lines by requiring them to satisfy
+The paper proof never deals with lines that contain an empty set because those are not lines. The line data structure defined here allows those invalid lines with zero configurations. Most proofs hold for them as well some of the proofs leading up to the conclusion only accept proper lines by requiring them to satisfy
 \begin{minted}{Coq}
 Definition nonzero := all (λ x : {set color}, #|x| != 0).
 \end{minted}
@@ -1024,7 +1041,8 @@ Depicted below is the only inductive definition in my code. They usually define 
 \begin{minted}{Coq}
 Inductive iterated_combination : line -> Prop :=
     present : ∀ a, a \in input -> iterated_combination a
-  | combined : ∀ (a b c : line), iterated_combination a -> iterated_combination b ->
+  | combined : ∀ (a b c : line),
+      iterated_combination a -> iterated_combination b ->
       combination_of a b c -> nonzero c -> iterated_combination c.
 \end{minted}
 
@@ -1048,7 +1066,7 @@ Totality is necessary because it would be easy to prove anything with a nontermi
 \begin{minted}{Coq}
 Fixpoint make_false n : False := make_false (n+1).
 \end{minted}
-Fortunately attempting to define the above function produces the error `Recursive definition of make\_false is ill-formed.` Coq requires that recursive functions have at least one \emph{decreasing argument}.~\cite{coqRefman} In recursive calls, the decreasing argument must be \emph{structurally} smaller; It must be only part of what was passed in. For example, a function that takes a list could call itself with just the tail of the list.
+Fortunately attempting to define the above function produces the error `Recursive definition of make\_false is ill-formed.` Coq requires that recursive functions have at least one \emph{decreasing argument}~\cite{coqRefman}. In recursive calls, the decreasing argument must be \emph{structurally} smaller; It must be only part of what was passed in. For example, a function that takes a list could call itself with just the tail of the list.
 
 It can be shown that Gallina is not Turing-complete because all Gallina programs eventually halt. It is well known that checking if an arbitrary program halts is undecidable. But the halting problem is trivial for all Gallina programs, so Gallina can express only a subset of all programs.
 
@@ -1106,7 +1124,8 @@ which requires that all smaller elements are also accessible. (The minimal eleme
 
 The helper lemma is proved by performing induction on weight and applying the lemma
 \begin{minted}{Coq}
-  Lemma strictly_dominates_weight (a b : line) : a ⊂ b -> weight a < weight b.
+  Lemma strictly_dominates_weight (a b : line) :
+    a ⊂ b -> weight a < weight b.
 \end{minted}
 relating weight to strict domination. With well-foundedness proved, we can use \icoq{well_founded_induction} from the standard library in \icoq{combination_is_complete}.
 
@@ -1114,7 +1133,7 @@ relating weight to strict domination. With well-foundedness proved, we can use \
 
 Ltac is the tactics language of Coq. It is mostly used to generate proofs. Sometimes it is used to derive a function whose signature forces the definition to be correct, for example decidable equality, a function that returns a proof that its arguments are equal or a proof that they are not equal. If a function is tricky to define because it requires proofs it is sometimes defined using the \icoq{refine}-tactic, which takes Gallina code with blanks and allows filling those blanks using Ltac.
 
-Ltac isn't meant for generating normal code or specifications; its library focuses on generating any code that fits a type and it is less trustworthy than the core of Coq.
+Ltac is not meant for generating normal code or specifications; its library focuses on generating any code that fits a type and it is less trustworthy than the core of Coq.
 
 Code generation is a game of filling in blanks. At the start, there is one blank for the whole function body. It is replaced with some code that in turn contains one or more blanks. When all the blanks have been filled, the function is complete.
 
@@ -1136,11 +1155,11 @@ Useful combinations of tactics can be given their own name. For example, I have 
 \begin{minted}{Coq}
   Ltac split_and := repeat (split || (apply/andP; split); try done).
 \end{minted}
-which splits everything it can and tries to convert boolean "and" to propositional "and" if it can't split and automatically proves all trivial goals using the \icoq{done} tactic from ssreflect.
+which splits everything it can and tries to convert Boolean "and" to propositional "and" if it can not split and automatically proves all trivial goals using the \icoq{done} tactic from ssreflect.
 
-Ltac can even select a tactic by pattern matching on the goal and hypotheses. I don't use it in this development but it can be very useful, especially when automating large parts of a development. A significant limitation of the technique is that the match is purely syntactic; unlike equality in Coq, pattern matching in Ltac does not consider two terms that evalute to the same normal form equal.
+Ltac can even select a tactic by pattern matching on the goal and hypotheses. I do not use it in this development but it can be very useful, especially when automating large parts of a development. A significant limitation of the technique is that the match is purely syntactic; unlike equality in Coq, pattern matching in Ltac does not consider two terms that evalute to the same normal form equal.
 
-Mathematical components defines a lot of tactics and tactic notations (same as a notation but for Ltac) that I use, so my proofs don't look like standard Coq. The reason for the abundance of notations is that the library offers highly compact notation for writing precise tactics rather than fixing the lack of precision with powerful automation.
+Mathematical components defines a lot of tactics and tactic notations (same as a notation but for Ltac) that I use, so my proofs do not look like standard Coq. The reason for the abundance of notations is that the library offers highly compact notation for writing precise tactics rather than fixing the lack of precision with powerful automation.
 
 \subsection{Mathematical components}
 
@@ -1150,13 +1169,13 @@ Mathematical components is built on the small-scale reflection (ssreflect) libra
 
 \subsubsection{Reflection views}
 
-An important idea in ssreflect is that every proposition is written as a boolean expression and converted into the most suitable form via a reflection view when necessary.~\cite{mathcompbook}
+An important idea in ssreflect is that every proposition is written as a Boolean expression and converted into the most suitable form via a reflection view when necessary~\cite{mathcompbook}.
 
-The boolean form is excellent for case analysis and proofs via computation. Case analysis on propositional forms isn't possible without adding the law of excluded middle $\forall a : a \lor \lnot a$ as an axiom. It is common to avoid axioms if possible in Coq because not all axioms are compatible with each other.
+The Boolean form is excellent for case analysis and proofs via computation. Case analysis on propositional forms is not possible without adding the law of excluded middle $\forall a : a \lor \lnot a$ as an axiom. It is common to avoid axioms if possible in Coq because not all axioms are compatible with each other.
 
-Suppose we would like to separately prove the case where $a$ is equal to $b$ and the case where they differ. Via small-scale reflection we can view their equality as a boolean and perform case analysis on it. In conventional Coq, one would have to write a function for the type of a and b that either returns that its arguments are equal or that they are not. For equality, the standard library defines a tactic \icoq{decide equality} that fills in the body of such a function but that only works for equality. Ssreflect provides reflection conversions between boolean and propositional forms of equality, implication, negation and quantifiers among others.
+Suppose we would like to separately prove the case where $a$ is equal to $b$ and the case where they differ. Via small-scale reflection we can view their equality as a Boolean and perform case analysis on it. In conventional Coq, one would have to write a function for the type of $a$ and $b$ that either returns that its arguments are equal or that they are not. For equality, the standard library defines a tactic \icoq{decide equality} that fills in the body of such a function but that only works for equality. Ssreflect provides reflection conversions between Boolean and propositional forms of equality, implication, negation and quantifiers among others.
 
-The propositional forms are useful because unlike the boolean forms, they are data structures that can be operated on. An assumption that is a conjunction can be broken down into two assumptions. Case analysis can be performed on a disjunction. Propositional equalities can be used to rewrite.
+The propositional forms are useful because unlike the Boolean forms, they are data structures that can be operated on. An assumption that is a conjunction can be broken down into two assumptions. Case analysis can be performed on a disjunction. Propositional equalities can be used to rewrite.
 
 \subsubsection{The ssreflect proof language}
 
@@ -1166,26 +1185,28 @@ Another issue that ssreflect attempts to remedy is that most of the standard tac
 
 Ssreflect's solution to naming is to add new assumptions to the goal so they do not immediately need a name. After adding an assumption \icoq{X} to a goal \icoq{G}, the new goal is \icoq{X -> G}. There are many bookkeeping tactics to rearrange the chain of implications like the stack in a language like FORTH.\@To allow the user to completely avoid automatic naming, ssreflect contains its own set of tactics that replaces almost all standard tactics.
 
-When shuffling assumptions around isn't enough, they can be removed from the goal and named with the \icoq{=>} tactical, which can be appended to any tactic. For example, to name two assumptions produced by the tactic \icoq{tac}, one could write \icoq{tac => a b.} There is in fact a pretty rich language that one can use after the arrow. Most importantly, breaking products into their parts is done with a pair of square brackets and applying a function or reflection view is done with a slash. For example \icoq{/andP[a b]} takes the first assumption in the stack, turns it from a boolean and to a propositional and, splits it into two assumptions and names them \icoq{a} and \icoq{b}.
+When shuffling assumptions around isn't enough, they can be removed from the goal and named with the \icoq{=>} tactical, which can be appended to any tactic. For example, to name two assumptions produced by the tactic \icoq{tac}, one could write \icoq{tac => a b.} There is in fact a pretty rich language that one can use after the arrow. Most importantly, breaking products into their parts is done with a pair of square brackets and applying a function or reflection view is done with a slash. For example \icoq{/andP[a b]} takes the first assumption in the stack, turns it from a Boolean and to a propositional and, splits it into two assumptions and names them \icoq{a} and \icoq{b}.
 
-Instead of manual naming, Chlipala~\cite{CPDT} prefers to write very short, almost completely automated proofs. They are maintainable because they do not refer to named assumptions, instead defining automated procedures for processing certain shapes of goals or assumptions. My attempts at that level of automation haven't been very successful but I can see that my proof could be significantly shorter if some of the more trivial work was automated. Proofs with both heavy automation and cleaner presentation in the style of ssreflect could even be somewhat readable.
+Instead of manual naming, Chlipala~\cite{CPDT} prefers to write very short, almost completely automated proofs. They are maintainable because they do not refer to named assumptions, instead defining automated procedures for processing certain shapes of goals or assumptions. My attempts at that level of automation have not been very successful but I can see that my proof could be significantly shorter if some of the more trivial work was automated. Proofs with both heavy automation and cleaner presentation in the style of ssreflect could even be somewhat readable.
 
 A significant downside of Mathematical components is that it defines its own version of everything. Even the \icoq{nat} in ssreflect is incompatible with the standard library's \icoq{nat}. Because of this standard \icoq{lia} tactic, which automatically solves linear integer arithmetic (equations involving comparison, addition and multiplication with constants) can only be used after converting every expression to the equivalent on standard nats. I solved this problem by writing a tactic called liafy that converts a subset of mathematical operations.
 
 \begin{minted}{Coq}
-  Ltac liafy := rewrite -?(rwP leP) -?(rwP ltP) -?(rwP negP) -?(rwP eqP) -?plusE.
+  Ltac liafy :=
+    rewrite -?(rwP leP) -?(rwP ltP) -?(rwP negP) -?(rwP eqP) -?plusE.
   Ltac sslia := liafy; lia.
 \end{minted}
 
-Thanks to Mathematical components I didn't have to write any data structures myself, which makes me think that it is well suited for people who know abstract algebra very well but know little about programming. Writing the basic operations on a data structure in Coq can be very unintuitive especially because the convoy pattern~\cite{CPDT} is often necessary.
+Thanks to Mathematical components I did not have to write any data structures myself, which makes me think that it is well suited for people who know abstract algebra very well but know little about programming. Writing the basic operations on a data structure in Coq can be very unintuitive especially because the convoy pattern~\cite{CPDT} is often necessary.
 
-For example, when pattern matching on an array's length, the code in the match arm corresponding to zero still doesn't know that the array is empty. It seems that there is no way around it other than proof mode but actually one can very tediously annotate the pattern match, which makes it work in the desired way.
+For example, when pattern matching on an array's length, the code in the match arm corresponding to zero still does not know that the array is empty. It seems that there is no way around it other than proof mode but actually one can very tediously annotate the pattern match, which makes it work in the desired way.
 
 Pattern matching in many other languages is much easier to use but they typically rely on axiom K for pattern matching, limiting the settings the language can be used in; for example, Homotopy type theory's Univalence axiom is incompatible with axiom K. Cockx et al.~\cite{withoutK} developed and formally proved a version of dependent pattern matching without K in 2014 that is available in Agda today.
 
+\clearpage
 \section{Performance}\label{performance}
 
-Maximization is the most expensive part of the original Round Eliminator's algorithm. Maximization via line combination is orders of magnitude faster in practice and is resistant to some pathological inputs but it remains the most computationally expensive part of round elimination. % TODO add to abstract maybe?
+Maximization is the most expensive part of the original Round Eliminator's algorithm. Maximization via line combination is orders of magnitude faster in practice and is resistant to some pathological inputs but it remains the most computationally expensive part of round elimination.
 
 Evaluating the performance of maximization is difficult, as its output can be exponentially larger than its input. However, there is no known algorithm for checking maximality that is significantly better than performing maximization. Therefore I will compare different algorithms' performance on the decision problem of finding out whether a set of lines is maximal or not.
 
@@ -1213,11 +1234,11 @@ The lines can be combined in $n^2\Delta\Delta!$ different ways, $n^2$ ways to ch
 
 Computing the combinations is feasible even for large $\Delta$ when the lines contain many duplicated sets because in that case the order of the duplicated elements has no effect on the outcome. This seems to happen often in practice. However, it is an open question if it is possible to design an algoritm that does not have a factorial worst case.
 
-Comparing two lines can be done by building a bipartite graph where each bipartition represents one of the lines and connecting one side's sets to every set on the other side that is included in them. If there is a perfect matching, one line dominates the other. Bipartite perfect matching can be solved in $O(\Delta^{2.5})$ via the Hopcroft-Karp algorithm. In practice it seems that a backtracking search can be faster but that could be asymptotically worse.
+Comparing two lines can be done by building a bipartite graph where each bipartition represents one of the lines and connecting one side's sets to every set on the other side that is included in them. If there is a perfect matching, one line dominates the other. Bipartite perfect matching can be solved in $O(\Delta^{2.5})$ time via the Hopcroft-Karp algorithm. In practice it seems that a backtracking search can be faster but that could be asymptotically worse.
 
 The resulting time complexity is $O(n^2\Delta\Delta!n\Delta^{2.5}) = O(n^3\Delta^{3.5}\Delta!)$. Notably, the size of the alphabet has no effect on running time anymore.
 
-In practical implementations there are tricks for quickly discarding most results of line combination, so the power of $n$ is closer to 2 than 3. But I haven't proved that.
+In practical implementations there are tricks for quickly discarding most results of line combination, so the power of $n$ is closer to 2 than 3. But I have not proved that.
 
 Another benefit of the new algorithm is that checking maximality with it requires only $O(1)$ extra space, while the old one requires $O(|\Sigma|^{\Delta} + n\Delta!)$. Practical implementations of the new algorithm use some extra memory for a cache of previously discarded lines.
 
@@ -1231,9 +1252,9 @@ Olivetti showed me that maintaining a set of dominated lines and checking new li
 
 A problem that took Olivetti's implementation of the old algorithm several minutes was solved in a hundredth of a second by my implementation of the new algorithm. Olivetti managed to run the new algorithm on problems with $\Delta > 10$ by optimizing for the case when lines contain the same set multiple times. Those problems were previously infeasible.
 
-I would have liked to measure the performance of the Coq function \icoq{is_maximal_form} but it turns out that even on the smallest possible input it requires a finite but large amount of memory. The next section explains how that shortcoming could be rectified.
+I would have liked to measure the performance of the function \icoq{is_maximal_form} (shown in Listing~\ref{is_maximal_form}) but it turns out that even on the smallest possible input it requires a finite but large amount of memory. The next section explains how that shortcoming could be rectified.
 
-
+\clearpage
 \section{Discussion}
 
 My goal was to build a provably correct version of round elimination while also improving its performance. I chose to focus solely on maximization, as it is the only nontrivial part of round elimination.
@@ -1242,7 +1263,7 @@ The line combination algorithm for maximization delivers on the performance goal
 
 \subsection{Impractical data structures}\label{badds}
 
-The formalization of round elimination uses many data structures and proofs provided by the Mathematical Components library. However, that library is made with pure mathematics in mind; functions using the data structures aren't meant to be executed.
+The formalization of round elimination uses many data structures and proofs provided by the Mathematical Components library. However, that library is made with pure mathematics in mind; functions using the data structures are not meant to be executed.
 
 One example is the definition of \icoq{n.-tuple}, a fixed size list. It is simply a wrapper around a list and a proof that the list's length is \icoq{n}. As the tuple goes through various transformations, the proof grows longer, as it is always replaced with a new proof that references the old one.
 
