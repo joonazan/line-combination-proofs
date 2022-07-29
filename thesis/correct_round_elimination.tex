@@ -1,4 +1,4 @@
-\documentclass[english, 12pt, a4paper, sci, a-1b, online]{aaltothesis}
+\documentclass[english, 12pt, a4paper, sci, a-2b, online]{aaltothesis}
 
 \usepackage[numbers]{natbib}
 \usepackage{graphicx}
@@ -304,7 +304,7 @@ An RE problem can be represented as sets $A$ and $P$. The symbols in the configu
 
 \subsection{Conversion from LCL}
 
-I will now show how to convert sinkless orientation to an RE problem. The RE problem operates on a tree where the degree of active nodes corresponds to the original graph's degree and the degree of passive nodes is two. Each vertex in the original graph corresponds to an active vertex in the RE graph. Edges correspond to passive vertices.
+I will now show how to convert sinkless orientation to an RE problem. The RE problem operates on a tree where the degree of active nodes corresponds to the original graph's degree and the degree of passive nodes is two. Each vertex in the original graph corresponds to an active vertex in the RE graph and edges correspond to passive vertices, as illustrated in Figure~\ref{conversionImage}.
 
 \begin{figure}[h]
 \centering
@@ -336,6 +336,7 @@ I will now show how to convert sinkless orientation to an RE problem. The RE pro
   \draw [dashed, stealth-stealth, shorten <=0.5ex, shorten >=0.5ex] (head) to[bend left=10] (PtoA);
 \end{tikzpicture}
 \caption{Correspondence between solutions in round elimination graph and original graph.}
+\label{conversionImage}
 \end{figure}
 
 We can describe the directions of edges by coloring the RE graph's edges with I (for incoming) and O (for outgoing), so the alphabet $\Sigma$ is $\{I, O\}$. The active side's rule $A = \{[I, I, O], [I, O, O], [O, O, O]\}$ lists all the valid neighborhoods. The passive side's rule $P = \{[I, O]\}$ ensures that each edge is incoming on one end and outgoing on the other; otherwise there could be edges with an arrowhead on both sides.
@@ -450,7 +451,38 @@ In the LOCAL model this lemma holds for general graphs because the LOCAL model a
 
 Suppose there is an algorithm $G_0$ that solves the round elimination problem $\Pi_0$ in $r$ rounds, where $r > 0$. Let us construct an algorithm $G_1$ that operates on the same graph but the active nodes are passive and vice versa. Also suppose that $G_1$ finishes in $r-1$ rounds, so it makes a decision based on an $r-1$ neighborhood.
 
-Suppose that $G_1$ is run on some vertex $v$. For each neighboring vertex $n$, $G_1$ computes all possible $r$-neighborhoods centered around $n$. Then $G_1$ runs $G_0$ on each of the neighborhoods, noting the color $G_0$ assigns to the edge $\{v, n\}$. $G_1$ assigns the union of all those colors to $\{v, n\}$.
+Suppose that $G_1$ is run on some vertex $v$. For each neighboring vertex $n$, $G_1$ computes all possible $r$-neighborhoods centered around $n$. Then $G_1$ runs $G_0$ on each of the neighborhoods, noting the color $G_0$ assigns to the edge $\{v, n\}$. $G_1$ assigns the union of all those colors to $\{v, n\}$. Figure~\ref{blindspot} shows an example of the neighborhoods.
+
+\pgfdeclarelayer{background}
+\pgfsetlayers{background,main}
+
+\begin{figure}[h]
+  \centering
+  \begin{tikzpicture}[line width=1pt]
+    \node [active] at (0, 0) (center) {$v$};
+    \foreach \i in {0, 1, 2}
+    {
+      \node [passive] at ($ (\i*120+18:1) + (center) $) (P\i) {\ifnum\i=0 $n$\fi};
+      \node [active] at ($ (\i*120+18:2) + (center) $) (A\i) {};
+
+      \draw (center) -- (P\i);
+      \draw (P\i) -- (A\i);
+      \foreach \da in {-60, 60} {
+        \draw [dotted] (A\i) -- ($ (A\i) + (\i*120+18+\da:0.7) $);
+        \ifnum\i=0
+          \node [passive] at ($ (A\i) + (\i*120+18+\da:1) $) (PP\da) {};
+          \draw (A\i) -- (PP\da);
+        \fi
+      };
+    };
+    \begin{pgfonlayer}{background}
+      \path[fill,lightgray,draw,line width=25pt] plot [smooth cycle,tension=1] coordinates {(P1) (P2) (PP-60) (PP60)};
+      \path[fill,blue!40!white,draw,line width=20pt] plot [smooth cycle,tension=1] coordinates {(P0) (P1) (P2)};
+    \end{pgfonlayer}
+  \end{tikzpicture}
+  \caption{When $r=2$, $G_0$ running on node $n$ would see the light grey area but $v$ running on $G_1$ only sees the blue area, leaving a significant blind spot.}
+  \label{blindspot}
+\end{figure}
 
 \begin{lemma}
   $G_1$ solves $\Pi_1$, the result of running round elimination on $\Pi_0$, provided that disjoint parts of the graph are independent.
